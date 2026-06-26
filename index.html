@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sismografia · NBR 9653 · US Vale Verde</title>
+  <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
+  <link rel="preconnect" href="https://docs.google.com">
+  <link rel="stylesheet" href="./styles.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <img class="topbar__logo" src="./assets/enaex-logo-white.png" alt="ENAEX">
+    <span class="topbar__title">Sismografia</span>
+    <span class="topbar__unit">US VALE VERDE</span>
+  </header>
+
+  <main class="page">
+    <section class="page-head">
+      <div class="page-head__title">
+        <p class="eyebrow">SISMOGRAFIA · NBR 9653:2005</p>
+        <h1>Vibração e Sobrepressão do Desmonte</h1>
+      </div>
+      <div class="filters">
+        <label class="filter">
+          <span>ANO</span>
+          <select id="filter-year"></select>
+        </label>
+        <label class="filter">
+          <span>MÊS</span>
+          <select id="filter-month"></select>
+        </label>
+        <label class="filter filter--wide">
+          <span>PONTO</span>
+          <select id="filter-point"></select>
+        </label>
+        <label class="filter filter--wide">
+          <span>Critério NBR 9653</span>
+          <select id="filter-criterion" title="Critério normativo para o limite de velocidade">
+            <option value="nbr">NBR 9653:2018 (limite legal)</option>
+            <option value="din2">DIN 4150-3 L2 (residencial)</option>
+            <option value="din3">DIN 4150-3 L3 (sensível)</option>
+            <option value="usbm">USBM RI 8507 (referência)</option>
+          </select>
+        </label>
+        <button id="filter-reset" type="button" class="filter-reset">Limpar</button>
+      </div>
+    </section>
+
+    <p class="status" id="status" aria-live="polite">
+      <span class="status__dot" id="status-dot"></span>
+      <span id="status-text">Carregando…</span>
+      <span class="status__spacer"></span>
+      <span class="status__time" id="last-update"></span>
+    </p>
+
+    <div class="active-filters" id="active-filters" style="display:none"></div>
+
+    <section class="kpis" id="kpis">
+      <div class="kpi">
+        <p class="kpi__label">EVENTOS MEDIDOS</p>
+        <p class="kpi__value" id="kpi-count">—</p>
+        <p class="kpi__sub" id="kpi-count-hint">&nbsp;</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">PPV MÁXIMO</p>
+        <p class="kpi__value" id="kpi-ppv">—</p>
+        <p class="kpi__sub" id="kpi-ppv-hint">Velocidade resultante (mm/s)</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">CONFORMIDADE VIBRAÇÃO</p>
+        <p class="kpi__value" id="kpi-conf">—</p>
+        <p class="kpi__sub" id="kpi-conf-hint">—</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">AIRBLAST MÁXIMO</p>
+        <p class="kpi__value" id="kpi-air">—</p>
+        <p class="kpi__sub" id="kpi-air-hint">Sobrepressão acústica — dBL pico (Linear)</p>
+      </div>
+    </section>
+
+    <section class="chart-stack">
+      <div class="chart-block">
+        <div class="chart-block__head">
+          <h2>Velocidade × Frequência — NBR 9653 e referências</h2>
+          <p>Cada ponto é um evento. Linhas: limite de PPV por frequência — NBR 9653:2018 (curva única, sólida) e referências DIN 4150-3 / USBM (tracejadas).</p>
+        </div>
+        <div class="chart-block__body chart-block__body--tall chart-block__body--xtratall"><canvas id="chart-vf"></canvas></div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-block__head">
+          <h2>Velocidade resultante (PPV) por evento</h2>
+          <p id="sub-ppv">Ordenado por data · cor = conformidade ao critério selecionado</p>
+        </div>
+        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-ppv"></canvas></div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-block__head">
+          <h2>Sobrepressão acústica (airblast) por evento</h2>
+          <p>Ordenado por data · linhas: 134 dBL (NBR 9653), 133 e 129 dBL (referências)</p>
+        </div>
+        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-air"></canvas></div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <h2>Evolução do PPV</h2>
+            <p>Média mensal da velocidade resultante (mm/s)</p>
+          </div>
+          <div class="chart-block__body"><canvas id="chart-trend-ppv"></canvas></div>
+        </div>
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <h2>Evolução do airblast</h2>
+            <p>Média mensal da sobrepressão (dBL)</p>
+          </div>
+          <div class="chart-block__body"><canvas id="chart-trend-air"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <h2>PPV por ponto de monitoramento</h2>
+            <p>Máximo e percentil 95 da velocidade resultante</p>
+          </div>
+          <div class="chart-block__body"><canvas id="chart-by-point"></canvas></div>
+        </div>
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <h2>Distribuição de frequências</h2>
+            <p>Eventos por faixa da NBR 9653 (frequência dominante)</p>
+          </div>
+          <div class="chart-block__body"><canvas id="chart-freq"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-block__head">
+          <h2>Distância escalonada × PPV</h2>
+          <p>SD = R / √Q (m/√kg) · linha de regressão v = k·SD<sup>−β</sup> ajustada aos dados</p>
+        </div>
+        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-scaled"></canvas></div>
+      </div>
+    </section>
+
+    <section class="extra-section">
+      <div class="extra-section__head">
+        <h2>Séries por eixo (Longitudinal · Vertical · Transversal)</h2>
+        <p>Evolução temporal da velocidade e da frequência de cada eixo medido</p>
+      </div>
+      <div id="extra-charts" class="extra-grid"></div>
+    </section>
+
+    <p class="source-note">
+      <strong>Fonte:</strong> planilha de sismografia da US Vale Verde (3084 eventos, jul/2020–jun/2026), lida em tempo real.
+      <strong>Critério de conformidade:</strong> NBR 9653:2018 — curva única de PPV×frequência (15→20 mm/s em 4–15 Hz; 20→50 mm/s em 15–40 Hz; 50 mm/s acima de 40 Hz), derivada da BS 7385-2.
+      Abaixo de 4 Hz aplica-se critério de deslocamento (0,6 mm pico). DIN 4150-3 e USBM RI 8507 são exibidas como <em>referências internacionais</em> — a NBR 9653 não classifica estruturas em tipos.
+      <strong>Airblast</strong> em dBL pico (Linear); limite NBR = 134 dBL (≈100 Pa).
+      <strong>Notas:</strong> frequência dominante = frequência do eixo de maior velocidade; PPV = velocidade resultante; distâncias/cargas inconsistentes são descartadas; a equação v = K·DE<sup>−β</sup> é método de previsão (USBM), não prescrição textual da NBR.
+    </p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="./app.js?v=1"></script>
+</body>
+</html>
