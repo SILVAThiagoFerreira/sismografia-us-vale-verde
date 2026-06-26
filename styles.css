@@ -272,6 +272,12 @@ body {
 .chart-block__body { position: relative; min-height: 220px; }
 .chart-block__body--tall { min-height: 280px; }
 .chart-block__body--xtratall { min-height: 460px; }
+/* Gráfico Velocidade × Frequência: proporção equilibrada (quase quadrada) e centralizado */
+.chart-block__body--vf {
+  max-width: 840px;
+  margin: 0 auto;
+  min-height: 600px;
+}
 
 .chart-row {
   display: grid;
