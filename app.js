@@ -710,6 +710,11 @@ function buildChart(canvasId, _kind, config) {
   if (CHARTS[canvasId]) CHARTS[canvasId].destroy();
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
+  // Chart.js 4 exige config.type. Se ausente, usa o tipo do 1º dataset (mixed charts) ou scatter.
+  if (!config.type) {
+    const ds = config.data && config.data.datasets && config.data.datasets[0];
+    config.type = (ds && ds.type) || _kind || "scatter";
+  }
   CHARTS[canvasId] = new Chart(ctx, config);
 }
 
