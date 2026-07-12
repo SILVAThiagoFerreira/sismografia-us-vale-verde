@@ -289,6 +289,8 @@ function populateFilters() {
       .map((value) => ({ kind: "Data", value }))
   ];
   cSel.value = DEFAULT_CRITERION;
+  const currentYear = String(new Date().getFullYear());
+  ySel.value = years.some((year) => String(year) === currentYear) ? currentYear : "";
 
   [ySel, mSel, pSel, fSel, cSel].forEach((s) => (s.onchange = render));
   search.oninput = () => {
