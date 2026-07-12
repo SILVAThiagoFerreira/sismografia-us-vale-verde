@@ -245,6 +245,7 @@ function buildRecords(table) {
     recs.push({
       date: dt, ano: dt.getFullYear(), mes: dt.getMonth() + 1,
       ponto: canonPoint(cell(f.ponto)),
+      fogo: String(cell(f.id) ?? "").trim(),
       dist, mic, carga,
       lv, lf, vv, vf, tv, tf,
       domFreq, ppv, air,
@@ -264,6 +265,8 @@ function populateFilters() {
   const ySel = document.getElementById("filter-year");
   const mSel = document.getElementById("filter-month");
   const pSel = document.getElementById("filter-point");
+  const fSel = document.getElementById("filter-fire");
+  const search = document.getElementById("filter-search");
   const cSel = document.getElementById("filter-criterion");
 
   ySel.innerHTML = `<option value="">Todos os anos</option>` +
@@ -272,11 +275,17 @@ function populateFilters() {
     meses.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
   pSel.innerHTML = `<option value="">Todos os pontos</option>` +
     points.map((p) => `<option value="${escapeAttr(p)}">${escapeText(p)}</option>`).join("");
+  const fires = [...new Set(RECORDS.map((r) => r.fogo).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+  fSel.innerHTML = `<option value="">Todos os fogos</option>` +
+    fires.map((f) => `<option value="${escapeAttr(f)}">${escapeText(f)}</option>`).join("");
   cSel.value = DEFAULT_CRITERION;
 
-  [ySel, mSel, pSel, cSel].forEach((s) => (s.onchange = render));
+  [ySel, mSel, pSel, fSel, cSel].forEach((s) => (s.onchange = render));
+  search.oninput = render;
   document.getElementById("filter-reset").onclick = () => {
-    ySel.value = ""; mSel.value = ""; pSel.value = ""; cSel.value = DEFAULT_CRITERION;
+    ySel.value = ""; mSel.value = ""; pSel.value = ""; fSel.value = "";
+    search.value = ""; cSel.value = DEFAULT_CRITERION;
     render();
   };
 }
@@ -285,11 +294,17 @@ function filtered() {
   const y = document.getElementById("filter-year").value;
   const mo = document.getElementById("filter-month").value;
   const p = document.getElementById("filter-point").value;
+  const fire = document.getElementById("filter-fire").value;
+  const query = document.getElementById("filter-search").value.trim().toLocaleLowerCase("pt-BR");
   const crit = document.getElementById("filter-criterion").value || DEFAULT_CRITERION;
   const data = RECORDS.filter((r) =>
     (!y || String(r.ano) === y) &&
     (!mo || String(r.mes) === mo) &&
-    (!p || r.ponto === p)
+    (!p || r.ponto === p) &&
+    (!fire || r.fogo === fire) &&
+    (!query || [r.fogo, r.ponto, r.date?.toLocaleDateString("pt-BR"), r.date?.toISOString(), r.ano, r.mes]
+      .filter((value) => value != null)
+      .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(query)))
   );
   return { data, crit };
 }
@@ -298,6 +313,7 @@ const FILTER_DEFS = [
   { id: "filter-year", label: "Ano" },
   { id: "filter-month", label: "Mês", name: (v) => meses[+v - 1] },
   { id: "filter-point", label: "Ponto" },
+  { id: "filter-fire", label: "Fogo" },
   { id: "filter-criterion", label: "Critério", name: (v) => CRITERIA[v] ? CRITERIA[v].short : v },
 ];
 
@@ -316,6 +332,12 @@ function updateActiveFilters() {
       );
     }
   });
+  const search = document.getElementById("filter-search");
+  if (search?.value.trim()) {
+    chips.push(`<button class="chip" data-id="filter-search" type="button">` +
+      `<span class="chip__k">Busca:</span> <span class="chip__v">${escapeText(search.value.trim())}</span>` +
+      `<span class="chip__x" aria-hidden="true">×</span></button>`);
+  }
   box.innerHTML = chips.join("");
   box.style.display = chips.length ? "" : "none";
   box.querySelectorAll(".chip").forEach((btn) => {

@@ -133,7 +133,21 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 .filter select:focus { outline: none; border-color: var(--red); }
+.filter input {
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  min-width: 178px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.filter input::placeholder { color: var(--faint); }
+.filter input:focus { outline: none; border-color: var(--red); }
 .filter--wide select { min-width: 178px; }
+.filter--search input { min-width: 190px; }
 .filter-reset {
   align-self: flex-end;
   font-family: var(--font);
