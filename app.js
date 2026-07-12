@@ -125,6 +125,8 @@ function parseDateCell(v) {
 }
 
 let RECORDS = [];
+let SEARCH_OPTIONS = [];
+let SEARCH_ACTIVE_INDEX = -1;
 let CHARTS = {};
 
 /* ===================== Carregamento ===================== */
@@ -279,15 +281,87 @@ function populateFilters() {
     .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
   fSel.innerHTML = `<option value="">Todos os fogos</option>` +
     fires.map((f) => `<option value="${escapeAttr(f)}">${escapeText(f)}</option>`).join("");
+  SEARCH_OPTIONS = [
+    ...fires.map((value) => ({ kind: "Fogo", value })),
+    ...points.map((value) => ({ kind: "Ponto", value })),
+    ...years.map((value) => ({ kind: "Ano", value: String(value) })),
+    ...[...new Set(RECORDS.map((r) => fmtDate(r.date)).filter(Boolean))]
+      .map((value) => ({ kind: "Data", value }))
+  ];
   cSel.value = DEFAULT_CRITERION;
 
   [ySel, mSel, pSel, fSel, cSel].forEach((s) => (s.onchange = render));
-  search.oninput = render;
-  document.getElementById("filter-reset").onclick = () => {
-    ySel.value = ""; mSel.value = ""; pSel.value = ""; fSel.value = "";
-    search.value = ""; cSel.value = DEFAULT_CRITERION;
+  search.oninput = () => {
+    SEARCH_ACTIVE_INDEX = -1;
+    search.classList.remove("is-selected");
+    updateSearchSuggestions();
     render();
   };
+  search.onfocus = updateSearchSuggestions;
+  search.onkeydown = (event) => {
+    const suggestions = document.querySelectorAll("#search-suggestions .search-suggestion");
+    if (event.key === "ArrowDown" && suggestions.length) {
+      event.preventDefault();
+      SEARCH_ACTIVE_INDEX = Math.min(SEARCH_ACTIVE_INDEX + 1, suggestions.length - 1);
+      updateSearchSuggestions();
+    } else if (event.key === "ArrowUp" && suggestions.length) {
+      event.preventDefault();
+      SEARCH_ACTIVE_INDEX = Math.max(SEARCH_ACTIVE_INDEX - 1, 0);
+      updateSearchSuggestions();
+    } else if (event.key === "Enter" && SEARCH_ACTIVE_INDEX >= 0 && suggestions[SEARCH_ACTIVE_INDEX]) {
+      event.preventDefault();
+      selectSearchSuggestion(suggestions[SEARCH_ACTIVE_INDEX].dataset.value);
+    } else if (event.key === "Escape") {
+      hideSearchSuggestions();
+    }
+  };
+  search.onblur = () => window.setTimeout(hideSearchSuggestions, 120);
+  document.getElementById("filter-reset").onclick = () => {
+    ySel.value = ""; mSel.value = ""; pSel.value = ""; fSel.value = "";
+    search.value = ""; SEARCH_ACTIVE_INDEX = -1; cSel.value = DEFAULT_CRITERION;
+    hideSearchSuggestions();
+    render();
+  };
+}
+
+function updateSearchSuggestions() {
+  const input = document.getElementById("filter-search");
+  const box = document.getElementById("search-suggestions");
+  if (!input || !box) return;
+  const query = input.value.trim().toLocaleLowerCase("pt-BR");
+  const matches = SEARCH_OPTIONS
+    .filter((item) => !query || item.value.toLocaleLowerCase("pt-BR").includes(query))
+    .slice(0, 8);
+  if (!matches.length) {
+    box.innerHTML = query ? `<div class="search-suggestions__empty">Nenhum item encontrado</div>` : "";
+    box.hidden = !query;
+    return;
+  }
+  box.innerHTML = matches.map((item, index) =>
+    `<button class="search-suggestion${index === SEARCH_ACTIVE_INDEX ? " is-active" : ""}" type="button" role="option" data-value="${escapeAttr(item.value)}">` +
+    `<span class="search-suggestion__kind">${escapeText(item.kind)}</span>` +
+    `<strong>${escapeText(item.value)}</strong></button>`
+  ).join("");
+  box.hidden = false;
+  box.querySelectorAll(".search-suggestion").forEach((button) => {
+    button.onmousedown = (event) => event.preventDefault();
+    button.onclick = () => selectSearchSuggestion(button.dataset.value);
+  });
+}
+
+function selectSearchSuggestion(value) {
+  const input = document.getElementById("filter-search");
+  if (!input) return;
+  input.value = value;
+  SEARCH_ACTIVE_INDEX = -1;
+  hideSearchSuggestions();
+  input.classList.add("is-selected");
+  render();
+}
+
+function hideSearchSuggestions() {
+  const box = document.getElementById("search-suggestions");
+  if (box) box.hidden = true;
 }
 
 function filtered() {
@@ -343,7 +417,10 @@ function updateActiveFilters() {
   box.querySelectorAll(".chip").forEach((btn) => {
     btn.onclick = () => {
       const s = document.getElementById(btn.dataset.id);
-      if (s) s.value = s.id === "filter-criterion" ? DEFAULT_CRITERION : "";
+      if (s) {
+        s.value = s.id === "filter-criterion" ? DEFAULT_CRITERION : "";
+        if (s.id === "filter-search") s.classList.remove("is-selected");
+      }
       render();
     };
   });
