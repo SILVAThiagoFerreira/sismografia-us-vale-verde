@@ -87,7 +87,7 @@ const C = {
   inkFill: "rgba(56,66,75,0.10)",
   neutral: "#E20613",
   meta: "#c8c6c4",
-  grid: "rgba(56,66,75,0.08)",
+  grid: "rgba(56,66,75,0.06)",
   text: "#6c747b",
   ok: "#107c10",
   amber: "#c47b00",
@@ -512,7 +512,7 @@ function renderVF(data, crit) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "nearest", intersect: true },
       plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 14, font: { size: 10 }, padding: 10 } },
+        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 14, font: { size: 11 }, padding: 10 } },
         tooltip: tooltipCfg({
           filter: (it) => it.datasetIndex === 0,
           callbacks: {
@@ -531,11 +531,11 @@ function renderVF(data, crit) {
       },
       scales: {
         x: { type: "logarithmic", min: 1, max: 250,
-          title: { display: true, text: "Frequência dominante (Hz)", color: C.text, font: { size: 9, weight: "bold" } },
-          ticks: { color: C.text, font: { size: 8 } }, grid: { color: C.grid } },
+          title: { display: true, text: "Frequência dominante (Hz)", color: C.text, font: { size: 11, weight: "600" } },
+          ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
         y: { type: "logarithmic", min: 0.05, max: 100,
-          title: { display: true, text: "Velocidade resultante — PPV (mm/s)", color: C.text, font: { size: 9, weight: "bold" } },
-          ticks: { color: C.text, font: { size: 8 }, callback: (v) => Number.isInteger(v) ? v : "" },
+          title: { display: true, text: "Velocidade resultante — PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } },
+          ticks: { color: C.text, font: { size: 10 }, callback: (v) => Number.isInteger(v) ? v : "" },
           grid: { color: C.grid } },
       },
     },
@@ -559,7 +559,7 @@ function renderPPV(data, crit) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "nearest", intersect: false },
       plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 10 } },
+        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } },
         tooltip: tooltipCfg({
           callbacks: {
             title: () => "",
@@ -571,8 +571,8 @@ function renderPPV(data, crit) {
         }),
       },
       scales: {
-        x: { type: "linear", ticks: { color: C.text, font: { size: 8 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
-        y: { title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 9, weight: "bold" } }, ticks: { color: C.text, font: { size: 8 } }, grid: { color: C.grid }, beginAtZero: true },
+        x: { type: "linear", ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
+        y: { title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, beginAtZero: true },
       },
     },
   });
@@ -603,7 +603,7 @@ function renderAir(data) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "nearest", intersect: false },
       plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 8 } },
+        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 8 } },
         tooltip: tooltipCfg({
           filter: (it) => it.datasetIndex === 0,
           callbacks: {
@@ -616,8 +616,8 @@ function renderAir(data) {
         }),
       },
       scales: {
-        x: { type: "linear", ticks: { color: C.text, font: { size: 8 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
-        y: { title: { display: true, text: "Airblast — dBL pico (Linear)", color: C.text, font: { size: 9, weight: "bold" } }, ticks: { color: C.text, font: { size: 8 } }, grid: { color: C.grid } },
+        x: { type: "linear", ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
+        y: { title: { display: true, text: "Airblast — dBL pico (Linear)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
       },
     },
   });
@@ -638,7 +638,7 @@ function renderTrendPPV(data) {
         { label: "PPV máx. (mm/s)", data: keys.map((k) => Math.max(...groups[k])), borderColor: C.neutral, borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, fill: false },
       ],
     },
-    options: lineOpts("PPV (mm/s)", { plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 10 } } } }),
+    options: lineOpts("PPV (mm/s)", { plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } } } }),
   });
 }
 
@@ -655,7 +655,7 @@ function renderTrendAir(data) {
         { type: "line", label: "Limite NBR 134 dBL", data: keys.map(() => 134), borderColor: C.neutral, borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, fill: false },
       ],
     },
-    options: lineOpts("Airblast (dBL)", { plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 10 } } } }),
+    options: lineOpts("Airblast (dBL)", { plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } } } }),
   });
 }
 
@@ -678,7 +678,7 @@ function renderByPoint(data) {
     options: {
       indexAxis: "y", responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 10 } }, tooltip: tooltipCfg() },
+      plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } }, tooltip: tooltipCfg() },
       scales: { x: scaleY("PPV (mm/s)"), y: { ...scaleTicks(), grid: { display: false } } },
     },
   });
@@ -710,7 +710,7 @@ function renderFreqBands(data, crit) {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 10 } }, tooltip: tooltipCfg() },
+      plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } }, tooltip: tooltipCfg() },
       scales: { x: scaleTicks(), y: scaleY("Nº de eventos") },
     },
   });
@@ -739,7 +739,7 @@ function renderScaled(data) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "nearest", intersect: true },
       plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 12 } },
+        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 12 } },
         tooltip: tooltipCfg({
           filter: (it) => it.datasetIndex === 0,
           callbacks: {
@@ -752,8 +752,8 @@ function renderScaled(data) {
         }),
       },
       scales: {
-        x: { type: "logarithmic", title: { display: true, text: "Distância escalonada DE (m/√kg)", color: C.text, font: { size: 9, weight: "bold" } }, ticks: { color: C.text, font: { size: 8 } }, grid: { color: C.grid } },
-        y: { type: "logarithmic", min: 0.01, title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 9, weight: "bold" } }, ticks: { color: C.text, font: { size: 8 }, callback: (v) => Number.isInteger(v) ? v : "" }, grid: { color: C.grid } },
+        x: { type: "logarithmic", title: { display: true, text: "Distância escalonada DE (m/√kg)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
+        y: { type: "logarithmic", min: 0.01, title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 }, callback: (v) => Number.isInteger(v) ? v : "" }, grid: { color: C.grid } },
       },
     },
   });
@@ -797,8 +797,8 @@ function renderAxes(data) {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false }, tooltip: tooltipCfg({ callbacks: { label: (it) => fmtNum(it.parsed.y, 2) + " " + yTitle } }) },
           scales: {
-            x: { ticks: { color: C.text, font: { size: 7 }, maxTicksLimit: 6, autoSkip: true }, grid: { display: false }, border: { color: C.grid } },
-            y: { ticks: { color: C.text, font: { size: 7 } }, grid: { color: C.grid }, border: { color: C.grid }, title: { display: true, text: yTitle, color: C.text, font: { size: 8 } } },
+            x: { ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 6, autoSkip: true }, grid: { display: false }, border: { color: C.grid } },
+            y: { ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, border: { color: C.grid }, title: { display: true, text: yTitle, color: C.text, font: { size: 10 } } },
           },
         },
       });
@@ -870,11 +870,11 @@ function lineOpts(yTitle, extra) {
     plugins: Object.assign({}, base.plugins, (extra && extra.plugins) || {}),
   });
 }
-function scaleTicks() { return { ticks: { color: C.text, font: { size: 7 }, maxRotation: 45, autoSkip: true }, border: { color: C.grid } }; }
+function scaleTicks() { return { ticks: { color: C.text, font: { size: 10 }, maxRotation: 45, autoSkip: true }, border: { color: C.grid } }; }
 function scaleY(title) {
   return {
-    title: { display: !!title, text: title, color: C.text, font: { size: 8, weight: "bold" } },
-    ticks: { color: C.text, font: { size: 7 } }, grid: { color: C.grid }, border: { color: C.grid },
+    title: { display: !!title, text: title, color: C.text, font: { size: 11, weight: "600" } },
+    ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, border: { color: C.grid },
   };
 }
 
@@ -896,7 +896,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   Chart.defaults.font.family = "'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif";
-  Chart.defaults.font.size = 7;
+  Chart.defaults.font.size = 11;
   Chart.defaults.color = "#6c747b";
   Chart.defaults.borderColor = "rgba(56,66,75,0.08)";
   Object.assign(Chart.defaults.plugins.tooltip, tooltipBase());
