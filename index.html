@@ -36,6 +36,10 @@
           <select id="filter-point"></select>
         </label>
         <label class="filter filter--wide">
+          <span>TIPO DE EVENTO</span>
+          <select id="filter-type"></select>
+        </label>
+        <label class="filter filter--wide">
           <span>FOGO (ID DESMONTE)</span>
           <select id="filter-fire"></select>
         </label>
@@ -150,6 +154,14 @@
 
       <div class="chart-block">
         <div class="chart-block__head">
+          <h2>Eventos por mês × conformidade</h2>
+          <p>Quantidade de eventos por mês, separada entre abaixo e acima do critério selecionado</p>
+        </div>
+        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-monthly"></canvas></div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-block__head">
           <h2>Distância escalonada × PPV</h2>
           <p>SD = R / √Q (m/√kg) · linha de regressão v = k·SD<sup>−β</sup> ajustada aos dados</p>
         </div>
@@ -175,6 +187,6 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="./app.js?v=3"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>

@@ -19,7 +19,8 @@
    ===================================================================== */
 
 const SHEET_ID = "1a9s365lfXQR7Nl1wCnc5Bx9wCgAxpDmd";
-const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
+const SHEET_TAB = "Sismografia"; // aba com os eventos (a planilha também tem abas de apoio)
+const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(SHEET_TAB)}`;
 const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
 /* --- Critérios normativos. Cada um: curva PPV×frequência (pontos [Hz, mm/s]).
@@ -203,7 +204,7 @@ function buildRecords(table) {
   const f = {
     data: g("DATA DOS FOGOS (D/M/A)"), horario: g("HORARIO"), id: g("ID DESMONTE"),
     dist: g("DISTANCIA DO SISMOGRAFO (M)"), ponto: g("PONTO DE MONITORAMENTO"),
-    nfuros: g("N DE FUROS"), iniciacao: g("INICIACAO"),
+    nfuros: g("N DE FUROS"), iniciacao: g("INICIACAO"), tipo: g("CATEGORIA / TIPO"),
     carga: g("CARGA TOTAL (KG)"), mic: g("CARGA MAX. POR ESPERA (KG)"),
     lv: g("L (MM/S)"), lf: g("L (HZ)"),
     vv: g("V (MM/S)"), vf: g("V (HZ)"),
@@ -212,7 +213,11 @@ function buildRecords(table) {
   };
 
   const recs = [];
+  const seen = new Set(); // linhas idênticas (cópias de lançamento) contam uma vez só
   for (const r of table.rows) {
+    const rowKey = JSON.stringify(r.c.map((c) => (c ? c.v : null)));
+    if (seen.has(rowKey)) continue;
+    seen.add(rowKey);
     const cell = (i) => (i < 0 ? null : (r.c[i] && r.c[i].v != null ? r.c[i].v : null));
     const num = (i) => {
       const v = cell(i);
@@ -248,6 +253,7 @@ function buildRecords(table) {
       date: dt, ano: dt.getFullYear(), mes: dt.getMonth() + 1,
       ponto: canonPoint(cell(f.ponto)),
       fogo: String(cell(f.id) ?? "").trim(),
+      tipo: String(cell(f.tipo) ?? "").trim() || "Não classificado",
       dist, mic, carga,
       lv, lf, vv, vf, tv, tf,
       domFreq, ppv, air,
@@ -268,8 +274,13 @@ function populateFilters() {
   const mSel = document.getElementById("filter-month");
   const pSel = document.getElementById("filter-point");
   const fSel = document.getElementById("filter-fire");
+  const tSel = document.getElementById("filter-type");
   const search = document.getElementById("filter-search");
   const cSel = document.getElementById("filter-criterion");
+  const types = [...new Set(RECORDS.map((r) => r.tipo).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  tSel.innerHTML = `<option value="">Todos os tipos</option>` +
+    types.map((t) => `<option value="${escapeAttr(t)}">${escapeText(t)}</option>`).join("");
 
   ySel.innerHTML = `<option value="">Todos os anos</option>` +
     years.map((y) => `<option value="${y}">${y}</option>`).join("");
@@ -292,7 +303,7 @@ function populateFilters() {
   const currentYear = String(new Date().getFullYear());
   ySel.value = years.some((year) => String(year) === currentYear) ? currentYear : "";
 
-  [ySel, mSel, pSel, fSel, cSel].forEach((s) => (s.onchange = render));
+  [ySel, mSel, pSel, fSel, tSel, cSel].forEach((s) => (s.onchange = render));
   search.oninput = () => {
     SEARCH_ACTIVE_INDEX = -1;
     search.classList.remove("is-selected");
@@ -319,7 +330,7 @@ function populateFilters() {
   };
   search.onblur = () => window.setTimeout(hideSearchSuggestions, 120);
   document.getElementById("filter-reset").onclick = () => {
-    ySel.value = ""; mSel.value = ""; pSel.value = ""; fSel.value = "";
+    ySel.value = ""; mSel.value = ""; pSel.value = ""; fSel.value = ""; tSel.value = "";
     search.value = ""; SEARCH_ACTIVE_INDEX = -1; cSel.value = DEFAULT_CRITERION;
     hideSearchSuggestions();
     render();
@@ -371,6 +382,7 @@ function filtered() {
   const mo = document.getElementById("filter-month").value;
   const p = document.getElementById("filter-point").value;
   const fire = document.getElementById("filter-fire").value;
+  const tipo = document.getElementById("filter-type").value;
   const query = document.getElementById("filter-search").value.trim().toLocaleLowerCase("pt-BR");
   const crit = document.getElementById("filter-criterion").value || DEFAULT_CRITERION;
   const data = RECORDS.filter((r) =>
@@ -378,6 +390,7 @@ function filtered() {
     (!mo || String(r.mes) === mo) &&
     (!p || r.ponto === p) &&
     (!fire || r.fogo === fire) &&
+    (!tipo || r.tipo === tipo) &&
     (!query || [r.fogo, r.ponto, r.date?.toLocaleDateString("pt-BR"), r.date?.toISOString(), r.ano, r.mes]
       .filter((value) => value != null)
       .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(query)))
@@ -389,6 +402,7 @@ const FILTER_DEFS = [
   { id: "filter-year", label: "Ano" },
   { id: "filter-month", label: "Mês", name: (v) => meses[+v - 1] },
   { id: "filter-point", label: "Ponto" },
+  { id: "filter-type", label: "Tipo" },
   { id: "filter-fire", label: "Fogo" },
   { id: "filter-criterion", label: "Critério", name: (v) => CRITERIA[v] ? CRITERIA[v].short : v },
 ];
@@ -439,6 +453,7 @@ function render() {
   renderTrendAir(data);
   renderByPoint(data);
   renderFreqBands(data, crit);
+  renderMonthly(data, crit);
   renderScaled(data);
   renderAxes(data);
   updateActiveFilters();
@@ -712,6 +727,33 @@ function renderFreqBands(data, crit) {
       interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } }, tooltip: tooltipCfg() },
       scales: { x: scaleTicks(), y: scaleY("Nº de eventos") },
+    },
+  });
+}
+
+function renderMonthly(data, crit) {
+  const groups = {};
+  data.forEach((r) => {
+    if (r.ppv == null || r.domFreq == null) return;
+    const g = (groups[monthKey(r)] = groups[monthKey(r)] || { ok: 0, over: 0 });
+    if (r.ppv > limitAt(crit, r.domFreq)) g.over++; else g.ok++;
+  });
+  const keys = Object.keys(groups).sort();
+  if (!keys.length) return buildChart("chart-monthly", null, emptyScatter());
+  buildChart("chart-monthly", "bar", {
+    type: "bar",
+    data: {
+      labels: keys.map(monthLabel),
+      datasets: [
+        { label: "Abaixo do limite", data: keys.map((k) => groups[k].ok), backgroundColor: C.ink, borderRadius: 2, stack: "m" },
+        { label: "Acima do limite", data: keys.map((k) => groups[k].over), backgroundColor: C.neutral, borderRadius: 2, stack: "m" },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 10, font: { size: 11 }, padding: 14 } }, tooltip: tooltipCfg() },
+      scales: { x: { ...scaleTicks(), stacked: true, grid: { display: false } }, y: { ...scaleY("Nº de eventos"), stacked: true } },
     },
   });
 }
