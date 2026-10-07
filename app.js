@@ -21,7 +21,9 @@
 const SHEET_ID = "1a9s365lfXQR7Nl1wCnc5Bx9wCgAxpDmd";
 const SHEET_TAB = "Sismografia"; // aba com os eventos (a planilha também tem abas de apoio)
 const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(SHEET_TAB)}`;
-const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+// Fonte principal: exportação CSV da primeira aba (Sismografia). Traz o texto completo;
+// o gviz descarta texto em colunas que ele classifica como numéricas (ex.: ID desmonte).
+const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
 /* --- Critérios normativos. Cada um: curva PPV×frequência (pontos [Hz, mm/s]).
        A NBR é o critério padrão (legal); os demais são referência internacional. --- */
@@ -135,15 +137,15 @@ async function loadSheet() {
   setStatus("loading", "Carregando dados da planilha…");
   let table;
   try {
-    const res = await fetch(GVIZ_URL, { cache: "no-store" });
-    if (!res.ok) throw new Error("gviz HTTP " + res.status);
-    table = parseGviz(await res.text());
+    const res = await fetch(`${CSV_URL}&t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) throw new Error("csv HTTP " + res.status);
+    table = parseCsv(await res.text());
   } catch (e) {
-    console.warn("gviz falhou, tentando CSV:", e);
+    console.warn("CSV falhou, tentando gviz:", e);
     try {
-      const res = await fetch(CSV_URL, { cache: "no-store" });
-      if (!res.ok) throw new Error("csv HTTP " + res.status);
-      table = parseCsv(await res.text());
+      const res = await fetch(GVIZ_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("gviz HTTP " + res.status);
+      table = parseGviz(await res.text());
     } catch (e2) {
       setStatus("error", "Não foi possível acessar a planilha. Verifique se o link está público.");
       throw e2;
@@ -170,8 +172,15 @@ function parseCsv(text) {
   const rows = csvToRows(text);
   const headers = rows.shift();
   const cols = headers.map((label) => ({ id: label, label, type: "string" }));
-  const tableRows = rows.map((r) => ({ c: headers.map((h, i) => ({ v: r[i] ?? null })) }));
+  const tableRows = rows.map((r) => ({ c: headers.map((h, i) => ({ v: csvValue(r[i]) })) }));
   return { cols, rows: tableRows };
+}
+
+// CSV exporta datas como M/D/AAAA (locale da planilha) — converte para o mesmo formato do gviz.
+function csvValue(raw) {
+  if (raw == null || raw === "") return null;
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(raw).trim());
+  return m ? `Date(${+m[3]},${+m[1] - 1},${+m[2]})` : raw;
 }
 
 function csvToRows(text) {
@@ -456,7 +465,107 @@ function render() {
   renderMonthly(data, crit);
   renderScaled(data);
   renderAxes(data);
+  renderTable(data);
   updateActiveFilters();
+}
+
+/* ===================== Consulta da planilha (tabela) ===================== */
+const TABLE = { data: [], page: 0, key: "date", dir: -1, q: "" };
+const TABLE_PAGE_SIZE = 50;
+
+function currentCrit() { return document.getElementById("filter-criterion").value || DEFAULT_CRITERION; }
+function sortVal(r, k) { return k === "date" ? r.date.getTime() : (r[k] ?? null); }
+function cellNum(v, d) { return v == null ? "—" : fmtNum(v, d); }
+
+function renderTable(data) {
+  TABLE.data = data;
+  drawTable();
+}
+
+function tableRows() {
+  const q = TABLE.q.trim().toLocaleLowerCase("pt-BR");
+  let rows = TABLE.data;
+  if (q) {
+    rows = rows.filter((r) => [r.fogo, r.ponto, r.tipo, fmtDate(r.date)]
+      .some((v) => String(v).toLocaleLowerCase("pt-BR").includes(q)));
+  }
+  const { key, dir } = TABLE;
+  return rows.slice().sort((a, b) => {
+    const va = sortVal(a, key), vb = sortVal(b, key);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === "string") return va.localeCompare(vb, "pt-BR", { numeric: true }) * dir;
+    return (va - vb) * dir;
+  });
+}
+
+function drawTable() {
+  const rows = tableRows();
+  const pages = Math.max(1, Math.ceil(rows.length / TABLE_PAGE_SIZE));
+  TABLE.page = Math.min(TABLE.page, pages - 1);
+  const slice = rows.slice(TABLE.page * TABLE_PAGE_SIZE, (TABLE.page + 1) * TABLE_PAGE_SIZE);
+  const crit = currentCrit();
+
+  const body = document.getElementById("data-body");
+  body.innerHTML = slice.length ? slice.map((r) => {
+    const lim = r.domFreq != null ? limitAt(crit, r.domFreq) : null;
+    const over = r.ppv != null && lim != null && r.ppv > lim;
+    return `<tr${over ? ' class="is-over"' : ""}>` +
+      `<td>${fmtDate(r.date)}</td><td>${escapeText(r.fogo || "—")}</td><td>${escapeText(r.ponto)}</td><td>${escapeText(r.tipo)}</td>` +
+      `<td class="num">${cellNum(r.dist, 0)}</td><td class="num">${cellNum(r.carga, 1)}</td>` +
+      `<td class="num">${cellNum(r.domFreq, 1)}</td><td class="num ppv">${cellNum(r.ppv, 2)}</td>` +
+      `<td class="num">${cellNum(r.air, 1)}</td></tr>`;
+  }).join("") : `<tr><td colspan="9" class="empty">Nenhum evento com os filtros atuais</td></tr>`;
+
+  document.getElementById("table-info").textContent =
+    `${fmtInt(rows.length)} registros · página ${TABLE.page + 1} de ${pages}`;
+  document.getElementById("table-prev").disabled = TABLE.page === 0;
+  document.getElementById("table-next").disabled = TABLE.page >= pages - 1;
+
+  document.querySelectorAll("#data-section th[data-key]").forEach((th) => {
+    th.classList.toggle("is-sorted", th.dataset.key === TABLE.key);
+    th.dataset.dir = th.dataset.key === TABLE.key ? (TABLE.dir > 0 ? "asc" : "desc") : "";
+  });
+}
+
+function exportTableCsv() {
+  const rows = tableRows();
+  const dec = (v, d) => (v == null ? "" : v.toFixed(d).replace(".", ","));
+  const head = ["Data", "ID desmonte", "Ponto", "Tipo", "Distância (m)", "Carga total (kg)", "Freq. dominante (Hz)", "PPV (mm/s)", "Airblast (dBL)", "Conformidade"];
+  const crit = currentCrit();
+  const lines = rows.map((r) => {
+    const lim = r.domFreq != null ? limitAt(crit, r.domFreq) : null;
+    const conf = r.ppv != null && lim != null ? (r.ppv <= lim ? "Abaixo" : "Acima") : "";
+    return [fmtDate(r.date), r.fogo, r.ponto, r.tipo, dec(r.dist, 0), dec(r.carga, 1), dec(r.domFreq, 1), dec(r.ppv, 2), dec(r.air, 1), conf]
+      .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";");
+  });
+  const csv = "﻿" + [head.join(";"), ...lines].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = `sismografia_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+function initTable() {
+  document.getElementById("table-search").oninput = (e) => { TABLE.q = e.target.value; TABLE.page = 0; drawTable(); };
+  document.getElementById("table-prev").onclick = () => { TABLE.page--; drawTable(); };
+  document.getElementById("table-next").onclick = () => { TABLE.page++; drawTable(); };
+  document.getElementById("table-export").onclick = exportTableCsv;
+  document.querySelectorAll("#data-section th[data-key]").forEach((th) => {
+    th.onclick = () => {
+      const k = th.dataset.key;
+      if (TABLE.key === k) TABLE.dir *= -1;
+      else { TABLE.key = k; TABLE.dir = (k === "date" || th.classList.contains("num")) ? -1 : 1; }
+      TABLE.page = 0;
+      drawTable();
+    };
+  });
 }
 
 function renderKpis(data, crit) {
@@ -942,6 +1051,7 @@ document.addEventListener("DOMContentLoaded", () => {
   Chart.defaults.color = "#6c747b";
   Chart.defaults.borderColor = "rgba(56,66,75,0.08)";
   Object.assign(Chart.defaults.plugins.tooltip, tooltipBase());
+  initTable();
   loadSheet().catch((e) => console.error(e));
   setInterval(() => loadSheet().catch(() => {}), 10 * 60 * 1000);
 });

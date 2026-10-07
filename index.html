@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=3">
+  <link rel="stylesheet" href="./styles.css?v=4">
 </head>
 <body>
   <header class="topbar">
@@ -177,6 +177,44 @@
       <div id="extra-charts" class="extra-grid"></div>
     </section>
 
+    <section class="data-section" id="data-section">
+      <div class="data-section__head">
+        <div>
+          <h2>Consulta da planilha</h2>
+          <p>Eventos conforme os filtros acima · clique no cabeçalho para ordenar · exporte para Excel</p>
+        </div>
+        <div class="data-tools">
+          <input id="table-search" type="search" placeholder="Filtrar a tabela…" autocomplete="off">
+          <button id="table-export" type="button" class="filter-reset">Exportar CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="data-table">
+          <thead>
+            <tr>
+              <th data-key="date">Data</th>
+              <th data-key="fogo">ID desmonte</th>
+              <th data-key="ponto">Ponto</th>
+              <th data-key="tipo">Tipo</th>
+              <th data-key="dist" class="num">Distância (m)</th>
+              <th data-key="carga" class="num">Carga total (kg)</th>
+              <th data-key="domFreq" class="num">Freq. (Hz)</th>
+              <th data-key="ppv" class="num">PPV (mm/s)</th>
+              <th data-key="air" class="num">Airblast (dBL)</th>
+            </tr>
+          </thead>
+          <tbody id="data-body"></tbody>
+        </table>
+      </div>
+      <div class="table-pager">
+        <span id="table-info"></span>
+        <span class="table-pager__btns">
+          <button id="table-prev" type="button" class="filter-reset">‹ Anterior</button>
+          <button id="table-next" type="button" class="filter-reset">Próxima ›</button>
+        </span>
+      </div>
+    </section>
+
     <p class="source-note">
       <strong>Fonte:</strong> planilha de sismografia da US Vale Verde (3084 eventos, jul/2020–jun/2026), lida em tempo real.
       <strong>Critério de conformidade:</strong> NBR 9653:2018 — curva única de PPV×frequência (15→20 mm/s em 4–15 Hz; 20→50 mm/s em 15–40 Hz; 50 mm/s acima de 40 Hz), derivada da BS 7385-2.
@@ -187,6 +225,6 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="./app.js?v=4"></script>
+  <script src="./app.js?v=6"></script>
 </body>
 </html>
