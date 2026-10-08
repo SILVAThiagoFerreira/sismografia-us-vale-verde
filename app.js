@@ -32,7 +32,7 @@ const CRITERIA = {
     label: "NBR 9653:2018",
     short: "NBR 9653",
     desc: "Curva única brasileira (limite legal)",
-    color: "#B40E16",
+    color: "#B8A23F",
     // Abaixo de 4 Hz: iso-linha do critério de deslocamento (0,6 mm pico): v = 2π·f·0,6
     pts: [[1, 3.77], [4, 15], [15, 20], [40, 50], [250, 50]],
     legal: true,
@@ -41,21 +41,21 @@ const CRITERIA = {
     label: "DIN 4150-3 · Linha 2 (residencial)",
     short: "DIN L2",
     desc: "Referência internacional — habitações",
-    color: "#1f6feb",
+    color: "#6B8E9B",
     pts: [[1, 5], [10, 5], [50, 15], [100, 20], [250, 20]],
   },
   din3: {
     label: "DIN 4150-3 · Linha 3 (sensível)",
     short: "DIN L3",
     desc: "Referência internacional — sensível/patrimônio",
-    color: "#6f42c1",
+    color: "#8A9099",
     pts: [[1, 3], [10, 3], [50, 8], [100, 10], [250, 10]],
   },
   usbm: {
     label: "USBM RI 8507 (modern homes)",
     short: "USBM",
     desc: "Referência internacional — residências (drywall)",
-    color: "#107c10",
+    color: "#3E7A57",
     pts: [[1, 12.7], [3, 12.7], [3, 19], [40, 19], [40, 50.8], [250, 50.8]],
   },
 };
@@ -63,8 +63,8 @@ const DEFAULT_CRITERION = "nbr";
 
 /* Limites de airblast (dBL pico, Linear). NBR = critério principal. */
 const AIRBLAST_REFS = [
-  { dBL: 134, label: "NBR 9653 (134 dBL · 100 Pa)", color: "#B40E16", solid: true },
-  { dBL: 133, label: "USBM/OSMRE 133 dBL (2 Hz)", color: "#c47b00", solid: false },
+  { dBL: 134, label: "NBR 9653 (134 dBL · 100 Pa)", color: "#B8A23F", solid: true },
+  { dBL: 133, label: "USBM/OSMRE 133 dBL (2 Hz)", color: "#B8A23F", solid: false },
   { dBL: 129, label: "129 dBL (sensível / incômodo)", color: "#6c747b", solid: false },
 ];
 
@@ -86,19 +86,19 @@ function limitAt(critKey, freq) {
 }
 
 const C = {
-  ink: "#3C4148",
+  ink: "#2E2E2E",
   inkFill: "rgba(60,65,72,0.10)",
-  neutral: "#B40E16",
+  neutral: "#B8A23F",
   rose: "#E3B5B9",
   grey: "#8A9099",
   meta: "#c8c6c4",
   grid: "rgba(0,0,0,0.07)",
   text: "#404040",
-  ok: "#107c10",
-  amber: "#c47b00",
-  axisL: "#1F6FB2",
-  axisV: "#E08A00",
-  axisT: "#2E8B57",
+  ok: "#3E7A57",
+  amber: "#B8A23F",
+  axisL: "#3E7A57",
+  axisV: "#B8A23F",
+  axisT: "#6B8E9B",
 };
 
 const norm = (s) =>
@@ -677,7 +677,7 @@ function renderFreqBands(data, crit) {
     data: {
       labels: bands.map((b) => b.label),
       datasets: [
-        { label: "Abaixo do limite", data: bands.map((b) => b.count - b.over), backgroundColor: C.ink, borderRadius: 0, datalabels: barLabel("#ffffff", "center") },
+        { label: "Abaixo do limite", data: bands.map((b) => b.count - b.over), backgroundColor: "#3E7A57", borderRadius: 0, datalabels: barLabel("#ffffff", "center") },
         { label: "Acima do limite", data: bands.map((b) => b.over), backgroundColor: C.neutral, borderRadius: 0, datalabels: barLabel("#ffffff", "center") },
       ],
     },
@@ -704,7 +704,7 @@ function renderMonthly(data, crit) {
     data: {
       labels: keys.map(monthLabel),
       datasets: [
-        { label: "Abaixo do limite", data: keys.map((k) => groups[k].ok), backgroundColor: C.ink, borderRadius: 0, stack: "m", datalabels: barLabel("#ffffff") },
+        { label: "Abaixo do limite", data: keys.map((k) => groups[k].ok), backgroundColor: "#3E7A57", borderRadius: 0, stack: "m", datalabels: barLabel("#ffffff") },
         { label: "Acima do limite", data: keys.map((k) => groups[k].over), backgroundColor: C.neutral, borderRadius: 0, stack: "m", datalabels: barLabel("#ffffff") },
       ],
     },
@@ -721,11 +721,11 @@ function renderMonthly(data, crit) {
 
 /* ===================== Cores por categoria de evento ===================== */
 const TIPO_COLOR = {
-  "Campanha completa": "#3C4148",
-  "Produção": "#B40E16",
-  "Ruído da comunidade": "#E0A100",
-  "Pré-corte": "#2A9D8F",
-  "Blocos, regularizações, etc": "#7A4EAB",
+  "Campanha completa": "#2E2E2E",
+  "Produção": "#B8A23F",
+  "Ruído da comunidade": "#B8A23F",
+  "Pré-corte": "#8FBC9A",
+  "Blocos, regularizações, etc": "#6B8E9B",
   "Não classificado": "#B8BCC2",
 };
 const TIPO_ORDER = Object.keys(TIPO_COLOR);
@@ -1028,7 +1028,7 @@ function tooltipCfg(extra) { return Object.assign({}, tooltipBase(), extra || {}
 function tooltipBase() {
   return {
     enabled: true, backgroundColor: "rgba(56,66,75,0.95)", titleColor: "#ffffff", bodyColor: "#e8e8e8",
-    borderColor: "#38424B", borderWidth: 0, padding: 12, cornerRadius: 4, caretSize: 8, caretPadding: 8,
+    borderColor: "#2E2E2E", borderWidth: 0, padding: 12, cornerRadius: 4, caretSize: 8, caretPadding: 8,
     displayColors: true, boxWidth: 10, boxHeight: 10, boxPadding: 4,
     titleFont: { weight: "700", size: 12 }, bodyFont: { size: 11 }, bodySpacing: 5,
   };
