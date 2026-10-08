@@ -459,6 +459,7 @@ function render() {
   renderKpis(data, crit);
   renderVF(data, crit);
   renderByType(data, crit);
+  renderAirByType(data);
   renderPPV(data, crit);
   renderAir(data);
   renderTrendPPV(data);
@@ -994,23 +995,50 @@ function renderAxes(data) {
 
 
 /* ===================== Gráficos por tipo de evento ===================== */
-/* Um gráfico de velocidade × frequência por categoria, com a curva do critério selecionado. */
-function renderByType(data, crit) {
-  const container = document.getElementById("type-charts");
-  if (!container) return;
-  Object.keys(CHARTS).filter((id) => id.startsWith("type-")).forEach((id) => {
-    CHARTS[id].destroy();
-    delete CHARTS[id];
-  });
-  container.innerHTML = "";
+/* Nota exibida no cartão de PPV de cada categoria (quando aplicável). */
+const TYPE_NOTES = {
+  "Ruído da comunidade": "Valor de janela, atrelado ao intervalo de sobrepressão acústica (PSPL).",
+};
 
+function typeGroups(data) {
   const groups = {};
   data.forEach((r) => { (groups[r.tipo] = groups[r.tipo] || []).push(r); });
   const order = TIPO_ORDER.filter((t) => groups[t]).concat(Object.keys(groups).filter((t) => !TIPO_COLOR[t]));
-  if (!order.length) {
-    container.innerHTML = `<p class="type-empty">Nenhum evento com os filtros atuais.</p>`;
-    return;
-  }
+  return { groups, order };
+}
+
+function clearTypeCharts(prefix) {
+  Object.keys(CHARTS).filter((id) => id.startsWith(prefix)).forEach((id) => {
+    CHARTS[id].destroy();
+    delete CHARTS[id];
+  });
+}
+
+function addTypeCard(container, id, tipo, color, meta, note) {
+  const card = document.createElement("div");
+  card.className = "type-card";
+  card.innerHTML =
+    `<div class="type-card__head"><span class="type-card__swatch" style="background:${color}"></span>` +
+    `<p class="type-card__title">${escapeText(tipo)}</p></div>` +
+    `<p class="type-card__meta">${meta}</p>` +
+    (note ? `<p class="type-card__note">${escapeText(note)}</p>` : "") +
+    `<div class="type-card__canvas"><canvas id="${id}"></canvas></div>`;
+  container.appendChild(card);
+}
+
+function emptyTypeMessage(container) {
+  container.innerHTML = `<p class="type-empty">Nenhum evento com os filtros atuais.</p>`;
+}
+
+/* PPV: um gráfico de velocidade × frequência por categoria, com a curva do critério selecionado. */
+function renderByType(data, crit) {
+  const container = document.getElementById("ppvtype-charts");
+  if (!container) return;
+  clearTypeCharts("ppvtype-");
+  container.innerHTML = "";
+
+  const { groups, order } = typeGroups(data);
+  if (!order.length) return emptyTypeMessage(container);
 
   const c = CRITERIA[crit];
   order.forEach((tipo, i) => {
@@ -1018,17 +1046,9 @@ function renderByType(data, crit) {
     const pts = recs.filter((r) => r.ppv != null && r.domFreq != null && r.ppv > 0 && r.domFreq > 0);
     const ok = pts.filter((r) => r.ppv <= limitAt(crit, r.domFreq)).length;
     const color = TIPO_COLOR[tipo] || "#B8BCC2";
-    const id = "type-" + i;
-
-    const card = document.createElement("div");
-    card.className = "type-card";
+    const id = "ppvtype-" + i;
     const conf = pts.length ? `${fmtNum(ok / pts.length * 100, 1)}% abaixo de ${c.short}` : "sem PPV/frequência";
-    card.innerHTML =
-      `<div class="type-card__head"><span class="type-card__swatch" style="background:${color}"></span>` +
-      `<p class="type-card__title">${escapeText(tipo)}</p></div>` +
-      `<p class="type-card__meta">${fmtInt(recs.length)} eventos · ${conf}</p>` +
-      `<div class="type-card__canvas"><canvas id="${id}"></canvas></div>`;
-    container.appendChild(card);
+    addTypeCard(container, id, tipo, color, `${fmtInt(recs.length)} eventos · ${conf}`, TYPE_NOTES[tipo]);
 
     buildChart(id, null, {
       data: {
@@ -1072,6 +1092,71 @@ function renderByType(data, crit) {
             title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 10, weight: "600" } },
             ticks: { color: C.text, font: { size: 9 }, callback: (v) => Number.isInteger(v) ? v : "" },
             grid: { color: C.grid } },
+        },
+      },
+    });
+  });
+}
+
+/* PSPL (sobrepressão acústica): um gráfico de airblast × data por categoria, com o limite NBR 9653. */
+function renderAirByType(data) {
+  const container = document.getElementById("airtype-charts");
+  if (!container) return;
+  clearTypeCharts("airtype-");
+  container.innerHTML = "";
+
+  const limit = AIRBLAST_REFS[0];
+  const { groups, order } = typeGroups(data);
+  const withAir = order.filter((t) => groups[t].some((r) => r.air != null));
+  if (!withAir.length) return emptyTypeMessage(container);
+
+  withAir.forEach((tipo, i) => {
+    const pts = groups[tipo].filter((r) => r.air != null);
+    const ok = pts.filter((r) => r.air <= limit.dBL).length;
+    const color = TIPO_COLOR[tipo] || "#B8BCC2";
+    const id = "airtype-" + i;
+    const conf = `${fmtNum(ok / pts.length * 100, 1)}% abaixo de ${limit.dBL} dBL`;
+    addTypeCard(container, id, tipo, color, `${fmtInt(pts.length)} medições · ${conf}`, "");
+
+    const xs = pts.map((r) => r.date.getTime());
+    buildChart(id, null, {
+      data: {
+        datasets: [
+          {
+            type: "scatter", label: tipo, isEvents: true,
+            data: pts.map((r) => ({ x: r.date.getTime(), y: r.air, rec: r })),
+            backgroundColor: color, borderColor: "#ffffff", borderWidth: 0.6,
+            pointRadius: 3.6, pointHoverRadius: 6, order: 3,
+          },
+          {
+            type: "line", label: limit.label,
+            data: [{ x: Math.min(...xs), y: limit.dBL }, { x: Math.max(...xs), y: limit.dBL }],
+            borderColor: limit.color, borderWidth: 2.2, pointRadius: 0, fill: false, order: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: false },
+        plugins: {
+          legend: {
+            display: true, position: "bottom",
+            labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 10, filter: (item, data) => !data.datasets[item.datasetIndex].isEvents },
+          },
+          tooltip: eventTooltip((it) => {
+            const r = it.raw.rec;
+            return [
+              `Data: ${fmtDate(r.date)}`, `Ponto: ${r.ponto}`, `Airblast: ${fmtNum(r.air, 1)} dBL`,
+              r.air > limit.dBL ? `✗ acima do limite NBR (${limit.dBL} dBL)` : `✓ abaixo do limite NBR (${limit.dBL} dBL)`,
+            ];
+          }),
+        },
+        scales: {
+          x: { type: "linear",
+            ticks: { color: C.text, font: { size: 9 }, maxTicksLimit: 5, callback: (v) => fmtAxisDate(v) },
+            grid: { color: C.grid } },
+          y: { title: { display: true, text: "Airblast — dBL pico (Linear)", color: C.text, font: { size: 10, weight: "600" } },
+            ticks: { color: C.text, font: { size: 9 } }, grid: { color: C.grid } },
         },
       },
     });

@@ -401,6 +401,12 @@ body {
   font-size: 10.5px;
   color: var(--muted);
 }
+.type-card__note {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--enaex-text);
+}
 .type-card__canvas { position: relative; height: 270px; }
 .type-empty {
   grid-column: 1 / -1;
