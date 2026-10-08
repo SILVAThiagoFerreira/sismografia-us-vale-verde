@@ -96,9 +96,9 @@ const C = {
   text: "#404040",
   ok: "#107c10",
   amber: "#c47b00",
-  axisL: "#1F6FB2",
-  axisV: "#E08A00",
-  axisT: "#2E8B57",
+  axisL: "#B40E16",
+  axisV: "#3C4148",
+  axisT: "#8A9099",
 };
 
 const norm = (s) =>
@@ -472,8 +472,8 @@ function render() {
 }
 
 /* ===================== Consulta da planilha (tabela) ===================== */
-const TABLE = { data: [], page: 0, key: "date", dir: -1, q: "" };
-const TABLE_PAGE_SIZE = 50;
+const TABLE_BATCH = 50;
+const TABLE = { data: [], rows: [], shown: TABLE_BATCH, key: "date", dir: -1, q: "" };
 
 function currentCrit() { return document.getElementById("filter-criterion").value || DEFAULT_CRITERION; }
 function sortVal(r, k) { return k === "date" ? r.date.getTime() : (r[k] ?? null); }
@@ -481,6 +481,8 @@ function cellNum(v, d) { return v == null ? "—" : fmtNum(v, d); }
 
 function renderTable(data) {
   TABLE.data = data;
+  TABLE.shown = TABLE_BATCH;
+  tableScrollTop();
   drawTable();
 }
 
@@ -502,11 +504,14 @@ function tableRows() {
   });
 }
 
+function tableScrollTop() {
+  document.querySelector("#data-section .table-wrap").scrollTop = 0;
+}
+
 function drawTable() {
   const rows = tableRows();
-  const pages = Math.max(1, Math.ceil(rows.length / TABLE_PAGE_SIZE));
-  TABLE.page = Math.min(TABLE.page, pages - 1);
-  const slice = rows.slice(TABLE.page * TABLE_PAGE_SIZE, (TABLE.page + 1) * TABLE_PAGE_SIZE);
+  TABLE.rows = rows;
+  const slice = rows.slice(0, TABLE.shown);
   const crit = currentCrit();
 
   const body = document.getElementById("data-body");
@@ -521,9 +526,8 @@ function drawTable() {
   }).join("") : `<tr><td colspan="9" class="empty">Nenhum evento com os filtros atuais</td></tr>`;
 
   document.getElementById("table-info").textContent =
-    `${fmtInt(rows.length)} registros · página ${TABLE.page + 1} de ${pages}`;
-  document.getElementById("table-prev").disabled = TABLE.page === 0;
-  document.getElementById("table-next").disabled = TABLE.page >= pages - 1;
+    `${fmtInt(rows.length)} registros · ` +
+    (TABLE.shown >= rows.length ? "todos exibidos" : `exibindo ${fmtInt(slice.length)}`);
 
   document.querySelectorAll("#data-section th[data-key]").forEach((th) => {
     th.classList.toggle("is-sorted", th.dataset.key === TABLE.key);
@@ -555,18 +559,30 @@ function exportTableCsv() {
 }
 
 function initTable() {
-  document.getElementById("table-search").oninput = (e) => { TABLE.q = e.target.value; TABLE.page = 0; drawTable(); };
-  document.getElementById("table-prev").onclick = () => { TABLE.page--; drawTable(); };
-  document.getElementById("table-next").onclick = () => { TABLE.page++; drawTable(); };
+  document.getElementById("table-search").oninput = (e) => {
+    TABLE.q = e.target.value;
+    TABLE.shown = TABLE_BATCH;
+    tableScrollTop();
+    drawTable();
+  };
   document.getElementById("table-export").onclick = exportTableCsv;
   document.querySelectorAll("#data-section th[data-key]").forEach((th) => {
     th.onclick = () => {
       const k = th.dataset.key;
       if (TABLE.key === k) TABLE.dir *= -1;
       else { TABLE.key = k; TABLE.dir = (k === "date" || th.classList.contains("num")) ? -1 : 1; }
-      TABLE.page = 0;
+      TABLE.shown = TABLE_BATCH;
+      tableScrollTop();
       drawTable();
     };
+  });
+  // Rolagem infinita: ao chegar perto do fim, carrega mais um lote
+  const wrap = document.querySelector("#data-section .table-wrap");
+  wrap.addEventListener("scroll", () => {
+    if (TABLE.shown < TABLE.rows.length && wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 120) {
+      TABLE.shown += TABLE_BATCH;
+      drawTable();
+    }
   });
 }
 
@@ -903,9 +919,9 @@ function renderByPoint(data) {
     data: {
       labels: entries.map((e) => e.p),
       datasets: [
-        { label: "PPV máx. (mm/s)", data: entries.map((e) => e.max), backgroundColor: C.neutral, borderRadius: 0, barPercentage: 0.9,
-          datalabels: { display: true, anchor: "end", align: "right", offset: 6, color: C.ink, font: { size: 11, weight: "600" }, formatter: (v) => fmtNum(v, 2) } },
-        { label: "PPV p95 (mm/s)", data: entries.map((e) => e.p95), backgroundColor: C.grey, borderRadius: 0, barPercentage: 0.9,
+        { label: "PPV máx. (mm/s)", data: entries.map((e) => e.max), backgroundColor: C.neutral, borderRadius: 0, barPercentage: 0.62, categoryPercentage: 0.8,
+          datalabels: { display: true, anchor: "end", align: "right", offset: 4, color: C.ink, font: { size: 10, weight: "600" }, formatter: (v) => fmtNum(v, 2) } },
+        { label: "PPV p95 (mm/s)", data: entries.map((e) => e.p95), backgroundColor: C.grey, borderRadius: 0, barPercentage: 0.62, categoryPercentage: 0.8,
           datalabels: { display: false } },
       ],
     },
@@ -914,7 +930,7 @@ function renderByPoint(data) {
       interaction: { mode: "index", intersect: false },
       layout: { padding: { right: 40 } },
       plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 10, font: { size: 11 }, padding: 14 } }, tooltip: tooltipCfg() },
-      scales: { x: scaleY("PPV (mm/s)"), y: { ...scaleTicks(), grid: { display: false } } },
+      scales: { x: scaleY("PPV (mm/s)"), y: { ...scaleTicks(), ticks: { color: C.text, font: { size: 10 }, autoSkip: false }, grid: { display: false } } },
     },
   });
 }
@@ -958,13 +974,13 @@ function renderAxes(data) {
             datalabels: {
               display: (ctx) => ctx.dataIndex === ctx.dataset.data.length - 1,
               anchor: "end", align: "top", offset: 4, color: d.color,
-              font: { size: 11, weight: "700" }, formatter: (v) => fmtNum(v, dec),
+              font: { size: 10, weight: "600" }, formatter: (v) => fmtNum(v, dec),
             },
           }],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          layout: { padding: { top: 14 } },
+          layout: { padding: { top: 14, right: 18 } },
           plugins: { legend: { display: false }, tooltip: tooltipCfg({ callbacks: { label: (it) => fmtNum(it.parsed.y, dec) + " " + yTitle } }) },
           scales: {
             x: { ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 6, autoSkip: true }, grid: { display: false }, border: { display: false } },
