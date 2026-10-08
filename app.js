@@ -96,9 +96,9 @@ const C = {
   text: "#404040",
   ok: "#107c10",
   amber: "#c47b00",
-  axisL: "#1f6feb",
-  axisV: "#B40E16",
-  axisT: "#6f42c1",
+  axisL: "#1F6FB2",
+  axisV: "#E08A00",
+  axisT: "#2E8B57",
 };
 
 const norm = (s) =>
@@ -605,147 +605,8 @@ function renderKpis(data, crit) {
     airOver > 0 ? `${fmtInt(airOver)} acima de ${nbrAir} dBL` : `Limite NBR: ${nbrAir} dBL`;
 }
 
-function renderVF(data, crit) {
-  const pts = data.filter((r) => r.ppv != null && r.domFreq != null && r.ppv > 0 && r.domFreq > 0)
-    .map((r) => ({ x: r.domFreq, y: r.ppv, ok: r.ppv <= limitAt(crit, r.domFreq), r }));
 
-  const datasets = [{
-    type: "scatter", label: "Eventos",
-    data: pts.map((p) => ({ x: p.x, y: p.y })),
-    backgroundColor: pts.map((p) => p.ok ? "rgba(56,66,75,0.45)" : "rgba(226,6,19,0.85)"),
-    borderColor: pts.map((p) => p.ok ? "rgba(56,66,75,0.7)" : "#B40E16"),
-    pointRadius: pts.map((p) => p.ok ? 2.2 : 4),
-    pointHoverRadius: 5, order: 3,
-  }];
 
-  for (const [key, c] of Object.entries(CRITERIA)) {
-    const sel = key === crit;
-    datasets.push({
-      type: "line", label: sel ? `${c.label} (critério)` : c.label,
-      data: c.pts.map(([x, y]) => ({ x, y })),
-      borderColor: c.color,
-      borderWidth: sel ? 2.4 : 1.2,
-      borderDash: sel ? [] : [6, 4],
-      pointRadius: 0, tension: 0, fill: false, order: sel ? 1 : 2,
-    });
-  }
-
-  buildChart("chart-vf", null, {
-    data: { datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "nearest", intersect: true },
-      plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 14, font: { size: 11 }, padding: 10 } },
-        tooltip: tooltipCfg({
-          filter: (it) => it.datasetIndex === 0,
-          callbacks: {
-            title: () => "",
-            label: (it) => {
-              const p = pts[it.dataIndex]; if (!p) return "";
-              const lim = limitAt(crit, p.x);
-              return [
-                `Ponto: ${p.r.ponto}`, `PPV: ${fmtNum(p.y, 2)} mm/s`,
-                `Freq.: ${fmtNum(p.x, 1)} Hz`, `Data: ${fmtDate(p.r.date)}`,
-                p.ok ? `✓ abaixo de ${CRITERIA[crit].short} (${fmtNum(lim, 1)} mm/s)` : `✗ acima de ${CRITERIA[crit].short} (${fmtNum(lim, 1)} mm/s)`,
-              ];
-            },
-          },
-        }),
-      },
-      scales: {
-        x: { type: "logarithmic", min: 1, max: 250,
-          title: { display: true, text: "Frequência dominante (Hz)", color: C.text, font: { size: 11, weight: "600" } },
-          ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
-        y: { type: "logarithmic", min: 0.05, max: 100,
-          title: { display: true, text: "Velocidade resultante — PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } },
-          ticks: { color: C.text, font: { size: 10 }, callback: (v) => Number.isInteger(v) ? v : "" },
-          grid: { color: C.grid } },
-      },
-    },
-  });
-}
-
-function renderPPV(data, crit) {
-  const pts = data.filter((r) => r.ppv != null);
-  if (!pts.length) return buildChart("chart-ppv", null, emptyScatter());
-  buildChart("chart-ppv", null, {
-    data: {
-      datasets: [{
-        type: "scatter", label: "PPV por evento (cor = conformidade)",
-        data: pts.map((r) => ({ x: r.date.getTime(), y: r.ppv })),
-        backgroundColor: pts.map((r) =>
-          (r.domFreq != null && r.ppv > limitAt(crit, r.domFreq)) ? "#B40E16" : "rgba(56,66,75,0.45)"),
-        pointRadius: 2, pointHoverRadius: 5, order: 1,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "nearest", intersect: false },
-      plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } },
-        tooltip: tooltipCfg({
-          callbacks: {
-            title: () => "",
-            label: (it) => {
-              const r = pts[it.dataIndex];
-              return [`Data: ${fmtDate(r.date)}`, `Ponto: ${r.ponto}`, `PPV: ${fmtNum(r.ppv, 2)} mm/s`, `Freq.: ${fmtNum(r.domFreq, 1)} Hz`];
-            },
-          },
-        }),
-      },
-      scales: {
-        x: { type: "linear", ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
-        y: { title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, beginAtZero: true },
-      },
-    },
-  });
-}
-
-function renderAir(data) {
-  const pts = data.filter((r) => r.air != null);
-  if (!pts.length) return buildChart("chart-air", null, emptyScatter());
-  const xs = pts.map((r) => r.date.getTime());
-  const xmin = Math.min(...xs), xmax = Math.max(...xs);
-  const datasets = [{
-    type: "scatter", label: "Airblast por evento",
-    data: pts.map((r) => ({ x: r.date.getTime(), y: r.air })),
-    backgroundColor: pts.map((r) => r.air > 134 ? "#B40E16" : r.air > 129 ? "#c47b00" : "rgba(56,66,75,0.45)"),
-    pointRadius: 2, pointHoverRadius: 5, order: AIRBLAST_REFS.length + 1,
-  }];
-  AIRBLAST_REFS.forEach((ref, i) => {
-    datasets.push({
-      type: "line", label: ref.label,
-      data: [{ x: xmin, y: ref.dBL }, { x: xmax, y: ref.dBL }],
-      borderColor: ref.color, borderWidth: ref.solid ? 1.8 : 1.1,
-      borderDash: ref.solid ? [] : [6, 4], pointRadius: 0, fill: false, order: AIRBLAST_REFS.length - i,
-    });
-  });
-  buildChart("chart-air", null, {
-    data: { datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "nearest", intersect: false },
-      plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 8 } },
-        tooltip: tooltipCfg({
-          filter: (it) => it.datasetIndex === 0,
-          callbacks: {
-            title: () => "",
-            label: (it) => {
-              const r = pts[it.dataIndex];
-              return [`Data: ${fmtDate(r.date)}`, `Ponto: ${r.ponto}`, `Airblast: ${fmtNum(r.air, 1)} dBL`, r.air > 134 ? "✗ acima do limite NBR (134 dBL)" : "✓ abaixo do limite NBR"];
-            },
-          },
-        }),
-      },
-      scales: {
-        x: { type: "linear", ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
-        y: { title: { display: true, text: "Airblast — dBL pico (Linear)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
-      },
-    },
-  });
-}
 
 /* Rótulos de valor nas barras (padrão das lâminas Enaex). Só aparecem quando há espaço. */
 function barLabel(color, anchor = "center", align = "center", offset = 0) {
@@ -796,30 +657,6 @@ function renderTrendAir(data) {
   });
 }
 
-function renderByPoint(data) {
-  const groups = {};
-  data.forEach((r) => { if (r.ppv != null) (groups[r.ponto] = groups[r.ponto] || []).push(r.ppv); });
-  const entries = Object.entries(groups)
-    .map(([p, arr]) => ({ p, max: Math.max(...arr), p95: percentile(arr, 0.95), n: arr.length }))
-    .sort((a, b) => b.max - a.max);
-
-  buildChart("chart-by-point", "bar", {
-    type: "bar",
-    data: {
-      labels: entries.map((e) => e.p),
-      datasets: [
-        { label: "PPV máx. (mm/s)", data: entries.map((e) => e.max), backgroundColor: C.neutral, borderRadius: 0, datalabels: barLabel("#3C4148", "end", "left", 2) },
-        { label: "PPV p95 (mm/s)", data: entries.map((e) => e.p95), backgroundColor: C.grey, borderRadius: 0, datalabels: barLabel("#3C4148", "end", "left", 2) },
-      ],
-    },
-    options: {
-      indexAxis: "y", responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 10 } }, tooltip: tooltipCfg() },
-      scales: { x: scaleY("PPV (mm/s)"), y: { ...scaleTicks(), grid: { display: false } } },
-    },
-  });
-}
 
 function renderFreqBands(data, crit) {
   const bands = [
@@ -880,6 +717,146 @@ function renderMonthly(data, crit) {
   });
 }
 
+
+
+/* ===================== Cores por categoria de evento ===================== */
+const TIPO_COLOR = {
+  "Campanha completa": "#3C4148",
+  "Produção": "#B40E16",
+  "Ruído da comunidade": "#E0A100",
+  "Pré-corte": "#2A9D8F",
+  "Blocos, regularizações, etc": "#7A4EAB",
+  "Não classificado": "#B8BCC2",
+};
+const TIPO_ORDER = Object.keys(TIPO_COLOR);
+
+/* Uma série por categoria: a legenda vira filtro (clique para ocultar). */
+function eventDatasets(recs, xf, yf) {
+  const groups = {};
+  recs.forEach((r) => { (groups[r.tipo] = groups[r.tipo] || []).push(r); });
+  const order = TIPO_ORDER.filter((t) => groups[t]).concat(Object.keys(groups).filter((t) => !TIPO_COLOR[t]));
+  return order.map((t) => ({
+    type: "scatter",
+    label: t,
+    data: groups[t].map((r) => ({ x: xf(r), y: yf(r), rec: r })),
+    backgroundColor: TIPO_COLOR[t] || "#B8BCC2",
+    borderColor: "#ffffff",
+    borderWidth: 0.6,
+    pointRadius: 3.6,
+    pointHoverRadius: 6,
+    order: 3,
+    isEvents: true,
+  }));
+}
+
+function eventTooltip(label) {
+  return tooltipCfg({
+    filter: (it) => it.dataset.isEvents,
+    callbacks: { title: () => "", label },
+  });
+}
+
+function renderVF(data, crit) {
+  const pts = data.filter((r) => r.ppv != null && r.domFreq != null && r.ppv > 0 && r.domFreq > 0);
+  const datasets = eventDatasets(pts, (r) => r.domFreq, (r) => r.ppv);
+  for (const [key, c] of Object.entries(CRITERIA)) {
+    const sel = key === crit;
+    datasets.push({
+      type: "line", label: sel ? `${c.label} (critério)` : c.label,
+      data: c.pts.map(([x, y]) => ({ x, y })),
+      borderColor: c.color,
+      borderWidth: sel ? 2.6 : 1.2,
+      borderDash: sel ? [] : [6, 4],
+      pointRadius: 0, tension: 0, fill: false, order: sel ? 1 : 2,
+    });
+  }
+  buildChart("chart-vf", null, {
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: true },
+      plugins: {
+        legend: { display: true, position: "bottom", labels: { color: C.text, usePointStyle: true, boxWidth: 8, font: { size: 11 }, padding: 14 } },
+        tooltip: eventTooltip((it) => {
+          const p = it.raw.rec;
+          const lim = limitAt(crit, p.domFreq);
+          return [
+            p.tipo, `Ponto: ${p.ponto}`, `PPV: ${fmtNum(p.ppv, 2)} mm/s`,
+            `Freq.: ${fmtNum(p.domFreq, 1)} Hz`, `Data: ${fmtDate(p.date)}`,
+            p.ppv <= lim ? `✓ abaixo de ${CRITERIA[crit].short} (${fmtNum(lim, 1)} mm/s)` : `✗ acima de ${CRITERIA[crit].short} (${fmtNum(lim, 1)} mm/s)`,
+          ];
+        }),
+      },
+      scales: {
+        x: { type: "logarithmic", min: 1, max: 250,
+          title: { display: true, text: "Frequência dominante (Hz)", color: C.text, font: { size: 11, weight: "600" } },
+          ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
+        y: { type: "logarithmic", min: 0.05, max: 100,
+          title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } },
+          ticks: { color: C.text, font: { size: 10 }, callback: (v) => Number.isInteger(v) ? v : "" },
+          grid: { color: C.grid } },
+      },
+    },
+  });
+}
+
+function renderPPV(data) {
+  const pts = data.filter((r) => r.ppv != null);
+  if (!pts.length) return buildChart("chart-ppv", null, emptyScatter());
+  buildChart("chart-ppv", null, {
+    data: { datasets: eventDatasets(pts, (r) => r.date.getTime(), (r) => r.ppv) },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      plugins: {
+        legend: { display: true, position: "bottom", labels: { color: C.text, usePointStyle: true, boxWidth: 8, font: { size: 11 }, padding: 14 } },
+        tooltip: eventTooltip((it) => {
+          const r = it.raw.rec;
+          return [`Data: ${fmtDate(r.date)}`, `Ponto: ${r.ponto}`, `PPV: ${fmtNum(r.ppv, 2)} mm/s`, `Freq.: ${fmtNum(r.domFreq, 1)} Hz`, r.tipo];
+        }),
+      },
+      scales: {
+        x: { type: "linear", ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
+        y: { title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, beginAtZero: true },
+      },
+    },
+  });
+}
+
+function renderAir(data) {
+  const pts = data.filter((r) => r.air != null);
+  if (!pts.length) return buildChart("chart-air", null, emptyScatter());
+  const xs = pts.map((r) => r.date.getTime());
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const datasets = eventDatasets(pts, (r) => r.date.getTime(), (r) => r.air);
+  AIRBLAST_REFS.forEach((ref, i) => {
+    datasets.push({
+      type: "line", label: ref.label,
+      data: [{ x: xmin, y: ref.dBL }, { x: xmax, y: ref.dBL }],
+      borderColor: ref.color, borderWidth: ref.solid ? 2 : 1.2,
+      borderDash: ref.solid ? [] : [6, 4], pointRadius: 0, fill: false, order: 1 + i,
+    });
+  });
+  buildChart("chart-air", null, {
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      plugins: {
+        legend: { display: true, position: "bottom", labels: { color: C.text, usePointStyle: true, boxWidth: 8, font: { size: 11 }, padding: 12 } },
+        tooltip: eventTooltip((it) => {
+          const r = it.raw.rec;
+          return [`Data: ${fmtDate(r.date)}`, `Ponto: ${r.ponto}`, `Airblast: ${fmtNum(r.air, 1)} dBL`, r.air > 134 ? "✗ acima do limite NBR (134 dBL)" : "✓ abaixo do limite NBR", r.tipo];
+        }),
+      },
+      scales: {
+        x: { type: "linear", ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 8, callback: (v) => fmtAxisDate(v) }, grid: { color: C.grid } },
+        y: { title: { display: true, text: "Airblast — dBL pico (Linear)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
+      },
+    },
+  });
+}
+
 function renderScaled(data) {
   const pts = data.filter((r) => r.de != null && r.ppv != null && r.ppv > 0);
   const head = document.querySelector("#chart-scaled").closest(".chart-block").querySelector(".chart-block__head p");
@@ -890,35 +867,54 @@ function renderScaled(data) {
   const reg = logLogRegression(pts.map((r) => ({ x: r.de, y: r.ppv })));
   const sdMin = Math.min(...pts.map((r) => r.de)), sdMax = Math.max(...pts.map((r) => r.de));
   const line = [{ x: sdMin, y: reg.k * Math.pow(sdMin, -reg.beta) }, { x: sdMax, y: reg.k * Math.pow(sdMax, -reg.beta) }];
-  if (head) head.textContent = `DE = R/√Q (m/√kg) · ${pts.length} eventos · ajuste: v = ${fmtNum(reg.k, 0)}·DE^−${fmtNum(reg.beta, 2)} (R² = ${fmtNum(reg.r2, 2)})`;
+  if (head) head.textContent = `${pts.length} eventos · v = ${fmtNum(reg.k, 0)}·DE^−${fmtNum(reg.beta, 2)} · R² = ${fmtNum(reg.r2, 2)}`;
 
+  const datasets = eventDatasets(pts, (r) => r.de, (r) => r.ppv);
+  datasets.push({ type: "line", label: "Regressão v = K·DE^−β", data: line, borderColor: C.neutral, borderWidth: 2.2, pointRadius: 0, fill: false, order: 0 });
   buildChart("chart-scaled", null, {
-    data: {
-      datasets: [
-        { type: "scatter", label: "Eventos", data: pts.map((r) => ({ x: r.de, y: r.ppv })), backgroundColor: "rgba(56,66,75,0.45)", pointRadius: 2, pointHoverRadius: 5, order: 2 },
-        { type: "line", label: "Regressão v = K·DE^−β", data: line, borderColor: C.neutral, borderWidth: 2, pointRadius: 0, fill: false, order: 1 },
-      ],
-    },
+    data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "nearest", intersect: true },
       plugins: {
-        legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 12, font: { size: 11 }, padding: 12 } },
-        tooltip: tooltipCfg({
-          filter: (it) => it.datasetIndex === 0,
-          callbacks: {
-            title: () => "",
-            label: (it) => {
-              const r = pts[it.dataIndex];
-              return [`Ponto: ${r.ponto}`, `Data: ${fmtDate(r.date)}`, `DE: ${fmtNum(r.de, 1)} m/√kg`, `PPV: ${fmtNum(r.ppv, 2)} mm/s`, `Q: ${fmtNum(r.mic, 0)} kg · R: ${fmtNum(r.dist, 0)} m`];
-            },
-          },
+        legend: { display: true, position: "bottom", labels: { color: C.text, usePointStyle: true, boxWidth: 8, font: { size: 11 }, padding: 12 } },
+        tooltip: eventTooltip((it) => {
+          const r = it.raw.rec;
+          return [`Ponto: ${r.ponto}`, `Data: ${fmtDate(r.date)}`, `DE: ${fmtNum(r.de, 1)} m/√kg`, `PPV: ${fmtNum(r.ppv, 2)} mm/s`, `Q: ${fmtNum(r.mic, 0)} kg · R: ${fmtNum(r.dist, 0)} m`];
         }),
       },
       scales: {
         x: { type: "logarithmic", title: { display: true, text: "Distância escalonada DE (m/√kg)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid } },
         y: { type: "logarithmic", min: 0.01, title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 11, weight: "600" } }, ticks: { color: C.text, font: { size: 10 }, callback: (v) => Number.isInteger(v) ? v : "" }, grid: { color: C.grid } },
       },
+    },
+  });
+}
+
+function renderByPoint(data) {
+  const groups = {};
+  data.forEach((r) => { if (r.ppv != null) (groups[r.ponto] = groups[r.ponto] || []).push(r.ppv); });
+  const entries = Object.entries(groups)
+    .map(([p, arr]) => ({ p, max: Math.max(...arr), p95: percentile(arr, 0.95), n: arr.length }))
+    .sort((a, b) => b.max - a.max);
+
+  buildChart("chart-by-point", "bar", {
+    type: "bar",
+    data: {
+      labels: entries.map((e) => e.p),
+      datasets: [
+        { label: "PPV máx. (mm/s)", data: entries.map((e) => e.max), backgroundColor: C.neutral, borderRadius: 0, barPercentage: 0.9,
+          datalabels: { display: true, anchor: "end", align: "right", offset: 6, color: C.ink, font: { size: 11, weight: "600" }, formatter: (v) => fmtNum(v, 2) } },
+        { label: "PPV p95 (mm/s)", data: entries.map((e) => e.p95), backgroundColor: C.grey, borderRadius: 0, barPercentage: 0.9,
+          datalabels: { display: false } },
+      ],
+    },
+    options: {
+      indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      layout: { padding: { right: 40 } },
+      plugins: { legend: { display: true, position: "bottom", labels: { color: C.text, boxWidth: 10, font: { size: 11 }, padding: 14 } }, tooltip: tooltipCfg() },
+      scales: { x: scaleY("PPV (mm/s)"), y: { ...scaleTicks(), grid: { display: false } } },
     },
   });
 }
@@ -941,13 +937,14 @@ function renderAxes(data) {
       if (r[d.fkey] != null && r[d.fkey] > 0) (gF[monthKey(r)] = gF[monthKey(r)] || []).push(r[d.fkey]);
     });
     const series = [
-      [`Velocidade — ${d.label}`, Object.keys(gV).sort(), (k) => mean(gV[k]), "mm/s"],
-      [`Frequência — ${d.label}`, Object.keys(gF).sort(), (k) => mean(gF[k]), "Hz"],
+      [`Velocidade — ${d.label}`, Object.keys(gV).sort(), (k) => mean(gV[k]), "mm/s", 2],
+      [`Frequência — ${d.label}`, Object.keys(gF).sort(), (k) => mean(gF[k]), "Hz", 1],
     ];
-    for (const [title, keys, valFn, yTitle] of series) {
+    for (const [title, keys, valFn, yTitle, dec] of series) {
       const card = document.createElement("div");
       card.className = "extra-card";
       const id = "extra-" + d.key + "-" + (yTitle === "Hz" ? "f" : "v");
+      card.style.borderTop = `3px solid ${d.color}`;
       card.innerHTML = `<p class="extra-card__title"><span class="extra-card__swatch" style="background:${d.color}"></span>${title}</p><div class="extra-card__canvas"><canvas id="${id}"></canvas></div>`;
       container.appendChild(card);
       if (!keys.length) continue;
@@ -955,20 +952,30 @@ function renderAxes(data) {
         type: "line",
         data: {
           labels: keys.map(monthLabel),
-          datasets: [{ data: keys.map(valFn), borderColor: d.color, backgroundColor: d.color + "22", borderWidth: 1.8, pointRadius: 1.5, tension: 0.3, fill: true }],
+          datasets: [{
+            data: keys.map(valFn), borderColor: d.color, backgroundColor: d.color + "1f",
+            borderWidth: 2.2, pointRadius: 2.5, pointBackgroundColor: d.color, tension: 0.35, fill: true,
+            datalabels: {
+              display: (ctx) => ctx.dataIndex === ctx.dataset.data.length - 1,
+              anchor: "end", align: "top", offset: 4, color: d.color,
+              font: { size: 11, weight: "700" }, formatter: (v) => fmtNum(v, dec),
+            },
+          }],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: tooltipCfg({ callbacks: { label: (it) => fmtNum(it.parsed.y, 2) + " " + yTitle } }) },
+          layout: { padding: { top: 14 } },
+          plugins: { legend: { display: false }, tooltip: tooltipCfg({ callbacks: { label: (it) => fmtNum(it.parsed.y, dec) + " " + yTitle } }) },
           scales: {
-            x: { ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 6, autoSkip: true }, grid: { display: false }, border: { color: C.grid } },
-            y: { ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, border: { color: C.grid }, title: { display: true, text: yTitle, color: C.text, font: { size: 10 } } },
+            x: { ticks: { color: C.text, font: { size: 10 }, maxTicksLimit: 6, autoSkip: true }, grid: { display: false }, border: { display: false } },
+            y: { ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, border: { display: false }, title: { display: true, text: yTitle, color: C.text, font: { size: 10 } } },
           },
         },
       });
     }
   }
 }
+
 
 /* ===================== Helpers ===================== */
 function buildChart(canvasId, _kind, config) {

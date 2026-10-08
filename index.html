@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=5">
+  <link rel="stylesheet" href="./styles.css?v=6">
 </head>
 <body>
   <header class="topbar">
@@ -104,7 +104,7 @@
       <div class="chart-block">
         <div class="chart-block__head">
           <h2>Velocidade resultante (PPV) por evento</h2>
-          <p id="sub-ppv">Vermelho = acima do critério selecionado</p>
+          <p id="sub-ppv">Cor = categoria do evento · clique na legenda para filtrar</p>
         </div>
         <div class="chart-block__body chart-block__body--tall"><canvas id="chart-ppv"></canvas></div>
       </div>
@@ -214,9 +214,6 @@
       </div>
     </section>
 
-    <p class="source-note">
-      <strong>Fonte:</strong> planilha de sismografia US Vale Verde, lida em tempo real. <strong>Critério:</strong> NBR 9653:2018. Frequência dominante = eixo de maior velocidade.
-    </p>
   </main>
 
   <footer class="confidential">
@@ -225,6 +222,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
-  <script src="./app.js?v=8"></script>
+  <script src="./app.js?v=10"></script>
 </body>
 </html>

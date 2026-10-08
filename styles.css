@@ -539,6 +539,11 @@ body {
 }
 .extra-card__title { color: var(--enaex-slate); }
 .kpi { border-top: 3px solid var(--enaex-red); }
+.chart-block,
+.chart-block--half,
+.extra-section { border-top: 3px solid var(--enaex-red); }
+.extra-card { border-top-width: 3px; }
+.extra-card__title { font-size: 12px; }
 .kpi__value { color: var(--enaex-slate); }
 .eyebrow,
 .page-head h1 { color: var(--enaex-red); }
