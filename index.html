@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=9">
+  <link rel="stylesheet" href="./styles.css?v=10">
 </head>
 <body>
   <header class="topbar">
@@ -22,6 +22,7 @@
         <p class="eyebrow">SISMOGRAFIA · NBR 9653:2018</p>
         <h1>Vibração e Sobrepressão do Desmonte</h1>
       </div>
+      <button id="base-export" type="button" class="page-head__action">Exportar base de dados</button>
     </section>
 
     <div class="filters">
@@ -229,12 +230,16 @@
 
   </main>
 
+  <button id="to-top" type="button" class="to-top" aria-label="Voltar ao topo" title="Voltar ao topo">
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2 1.5 7.5l1 1L7 4.5l4.5 4 1-1z" fill="currentColor"/></svg>
+  </button>
+
   <footer class="confidential">
     <span>STRICTLY PRIVATE AND CONFIDENTIAL</span>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
-  <script src="./app.js?v=15"></script>
+  <script src="./app.js?v=16"></script>
 </body>
 </html>

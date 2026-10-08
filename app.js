@@ -262,6 +262,7 @@ function buildRecords(table) {
 
     recs.push({
       date: dt, ano: dt.getFullYear(), mes: dt.getMonth() + 1,
+      horario: cell(f.horario), iniciacao: cell(f.iniciacao), nfuros: num(f.nfuros),
       ponto: canonPoint(cell(f.ponto)),
       fogo: String(cell(f.id) ?? "").trim(),
       tipo: String(cell(f.tipo) ?? "").trim() || "Não classificado",
@@ -537,27 +538,63 @@ function drawTable() {
   });
 }
 
-function exportTableCsv() {
-  const rows = tableRows();
-  const dec = (v, d) => (v == null ? "" : v.toFixed(d).replace(".", ","));
-  const head = ["Data", "ID desmonte", "Ponto", "Tipo", "Distância (m)", "Carga total (kg)", "Freq. dominante (Hz)", "PPV (mm/s)", "Airblast (dBL)", "Conformidade"];
-  const crit = currentCrit();
-  const lines = rows.map((r) => {
-    const lim = r.domFreq != null ? limitAt(crit, r.domFreq) : null;
-    const conf = r.ppv != null && lim != null ? (r.ppv <= lim ? "Abaixo" : "Acima") : "";
-    return [fmtDate(r.date), r.fogo, r.ponto, r.tipo, dec(r.dist, 0), dec(r.carga, 1), dec(r.domFreq, 1), dec(r.ppv, 2), dec(r.air, 1), conf]
-      .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";");
-  });
-  const csv = "﻿" + [head.join(";"), ...lines].join("\r\n");
+/* Gera e baixa um CSV (separador ";", BOM UTF-8 para o Excel). */
+function downloadCsv(head, rows, prefix) {
+  const quote = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = "﻿" + [head, ...rows].map((cols) => cols.map(quote).join(";")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   const d = new Date();
-  a.download = `sismografia_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.csv`;
+  a.download = `${prefix}_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(a.href);
+}
+
+const csvDec = (v, d) => (v == null ? "" : v.toFixed(d).replace(".", ","));
+const csvConf = (r, crit) => {
+  const lim = r.domFreq != null ? limitAt(crit, r.domFreq) : null;
+  return r.ppv != null && lim != null ? (r.ppv <= lim ? "Abaixo" : "Acima") : "";
+};
+
+/* Exporta a tabela como está filtrada/ordenada na tela. */
+function exportTableCsv() {
+  const crit = currentCrit();
+  const head = ["Data", "ID desmonte", "Ponto", "Tipo", "Distância (m)", "Carga total (kg)", "Freq. dominante (Hz)", "PPV (mm/s)", "Airblast (dBL)", "Conformidade"];
+  const lines = tableRows().map((r) =>
+    [fmtDate(r.date), r.fogo, r.ponto, r.tipo, csvDec(r.dist, 0), csvDec(r.carga, 1), csvDec(r.domFreq, 1), csvDec(r.ppv, 2), csvDec(r.air, 1), csvConf(r, crit)]);
+  downloadCsv(head, lines, "sismografia");
+}
+
+/* Exporta a base completa (todos os eventos, sem filtros), com todas as colunas medidas. */
+function exportBaseCsv() {
+  if (!RECORDS.length) return;
+  const crit = currentCrit();
+  const head = [
+    "Data", "Horário", "ID desmonte", "Ponto", "Tipo", "Iniciação", "Nº de furos",
+    "Distância (m)", "Carga total (kg)", "Carga máx. por espera (kg)", "Distância escalonada (m/√kg)",
+    "L (mm/s)", "L (Hz)", "V (mm/s)", "V (Hz)", "T (mm/s)", "T (Hz)",
+    "PPV resultante (mm/s)", "Freq. dominante (Hz)", "Airblast (dBL)", `Conformidade (${CRITERIA[crit].short})`,
+  ];
+  const lines = RECORDS.map((r) => [
+    fmtDate(r.date), r.horario, r.fogo, r.ponto, r.tipo, r.iniciacao, csvDec(r.nfuros, 0),
+    csvDec(r.dist, 0), csvDec(r.carga, 1), csvDec(r.mic, 1), csvDec(r.de, 2),
+    csvDec(r.lv, 2), csvDec(r.lf, 1), csvDec(r.vv, 2), csvDec(r.vf, 1), csvDec(r.tv, 2), csvDec(r.tf, 1),
+    csvDec(r.ppv, 2), csvDec(r.domFreq, 1), csvDec(r.air, 1), csvConf(r, crit),
+  ]);
+  downloadCsv(head, lines, "sismografia_base");
+}
+
+/* Botão "voltar ao topo": aparece após rolar a página para baixo. */
+function initBackToTop() {
+  const btn = document.getElementById("to-top");
+  if (!btn) return;
+  const update = () => btn.classList.toggle("is-visible", window.scrollY > 400);
+  window.addEventListener("scroll", update, { passive: true });
+  btn.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+  update();
 }
 
 function initTable() {
@@ -1262,6 +1299,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   Object.assign(Chart.defaults.plugins.tooltip, tooltipBase());
   initTable();
+  document.getElementById("base-export").onclick = exportBaseCsv;
+  initBackToTop();
   loadSheet().catch((e) => console.error(e));
   setInterval(() => loadSheet().catch(() => {}), 10 * 60 * 1000);
 });
