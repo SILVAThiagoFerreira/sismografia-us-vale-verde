@@ -316,6 +316,10 @@ function populateFilters() {
   ySel.value = years.some((year) => String(year) === currentYear) ? currentYear : "";
 
   [ySel, mSel, pSel, fSel, tSel, cSel].forEach((s) => (s.onchange = render));
+  // Ao escolher um período, o ano sai do filtro para o período valer sozinho (evita tela vazia).
+  [document.getElementById("filter-from"), document.getElementById("filter-to")].forEach((d) => {
+    d.onchange = () => { ySel.value = ""; render(); };
+  });
   search.oninput = () => {
     SEARCH_ACTIVE_INDEX = -1;
     search.classList.remove("is-selected");
@@ -343,7 +347,7 @@ function populateFilters() {
   search.onblur = () => window.setTimeout(hideSearchSuggestions, 120);
   document.getElementById("filter-reset").onclick = () => {
     ySel.value = ""; mSel.value = ""; pSel.value = ""; fSel.value = ""; tSel.value = "";
-    search.value = ""; SEARCH_ACTIVE_INDEX = -1; cSel.value = DEFAULT_CRITERION;
+    search.value = ""; SEARCH_ACTIVE_INDEX = -1; cSel.value = DEFAULT_CRITERION; clearPeriod();
     hideSearchSuggestions();
     render();
   };
@@ -389,26 +393,52 @@ function hideSearchSuggestions() {
   if (box) box.hidden = true;
 }
 
-function filtered() {
+/* Registros que passam nos filtros. Lâminas mensais usam month:false e type:false,
+   porque já quebram os dados por mês e por tipo. */
+function applyFilters({ month = true, type = true } = {}) {
   const y = document.getElementById("filter-year").value;
-  const mo = document.getElementById("filter-month").value;
+  const mo = month ? document.getElementById("filter-month").value : "";
   const p = document.getElementById("filter-point").value;
   const fire = document.getElementById("filter-fire").value;
-  const tipo = document.getElementById("filter-type").value;
+  const tipo = type ? document.getElementById("filter-type").value : "";
   const query = document.getElementById("filter-search").value.trim().toLocaleLowerCase("pt-BR");
-  const crit = document.getElementById("filter-criterion").value || DEFAULT_CRITERION;
-  const data = RECORDS.filter((r) =>
+  const from = periodStart();
+  const to = periodEnd();
+  return RECORDS.filter((r) =>
     (!y || String(r.ano) === y) &&
     (!mo || String(r.mes) === mo) &&
     (!p || r.ponto === p) &&
     (!fire || r.fogo === fire) &&
     (!tipo || r.tipo === tipo) &&
+    (!from || r.date >= from) &&
+    (!to || r.date <= to) &&
     (!query || [r.fogo, r.ponto, r.date?.toLocaleDateString("pt-BR"), r.date?.toISOString(), r.ano, r.mes]
       .filter((value) => value != null)
       .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(query)))
   );
-  return { data, crit };
 }
+
+function filtered() {
+  return {
+    data: applyFilters(),
+    crit: document.getElementById("filter-criterion").value || DEFAULT_CRITERION,
+  };
+}
+
+/* Período: datas ISO (yyyy-mm-dd) do input type="date", lidas como dia local. */
+function periodStart() {
+  const v = document.getElementById("filter-from").value;
+  return v ? new Date(v + "T00:00:00") : null;
+}
+function periodEnd() {
+  const v = document.getElementById("filter-to").value;
+  return v ? new Date(v + "T23:59:59.999") : null;
+}
+function clearPeriod() {
+  document.getElementById("filter-from").value = "";
+  document.getElementById("filter-to").value = "";
+}
+const brDate = (iso) => (iso ? iso.split("-").reverse().join("/") : "");
 
 const FILTER_DEFS = [
   { id: "filter-year", label: "Ano" },
@@ -440,10 +470,24 @@ function updateActiveFilters() {
       `<span class="chip__k">Busca:</span> <span class="chip__v">${escapeText(search.value.trim())}</span>` +
       `<span class="chip__x" aria-hidden="true">×</span></button>`);
   }
+  const from = document.getElementById("filter-from").value;
+  const to = document.getElementById("filter-to").value;
+  if (from || to) {
+    chips.push(
+      `<button class="chip" data-id="filter-period" type="button">` +
+      `<span class="chip__k">Período:</span> <span class="chip__v">${brDate(from) || "início"} → ${brDate(to) || "fim"}</span>` +
+      `<span class="chip__x" aria-hidden="true">×</span></button>`
+    );
+  }
   box.innerHTML = chips.join("");
   box.style.display = chips.length ? "" : "none";
   box.querySelectorAll(".chip").forEach((btn) => {
     btn.onclick = () => {
+      if (btn.dataset.id === "filter-period") {
+        clearPeriod();
+        render();
+        return;
+      }
       const s = document.getElementById(btn.dataset.id);
       if (s) {
         s.value = s.id === "filter-criterion" ? DEFAULT_CRITERION : "";
@@ -461,6 +505,8 @@ function render() {
   renderVF(data, crit);
   renderByType(data, crit);
   renderAirByType(data);
+  renderLamina("vib");
+  renderLamina("air");
   renderPPV(data, crit);
   renderAir(data);
   renderTrendPPV(data);
@@ -1197,6 +1243,161 @@ function renderAirByType(data) {
         },
       },
     });
+  });
+}
+
+/* ===================== Lâminas mensais por tipo (vibração e pressão acústica) ===================== */
+/* Mesmo formato das lâminas de apresentação: barras empilhadas por mês (Jan–Dez),
+   barra rosa = média da campanha completa, linhas tracejadas ligando cada tipo entre meses. */
+const MESES_LONGO = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const SEP = "Sem separação (campanha completa)";
+const CAMPANHA = "Campanha completa";
+const LAMINA_STYLE = {
+  [SEP]: { color: "#E3B5B9", label: "#404040", trend: "#D08F98" },
+  "Produção": { color: "#B40E16", label: "#ffffff", trend: "#B40E16" },
+  "Ruído da comunidade": { color: "#3C4148", label: "#ffffff", trend: "#3C4148" },
+  "Pré-corte": { color: "#8A9099", label: "#ffffff", trend: "#8A9099" },
+  "Blocos, regularizações, etc": { color: "#C4C7CB", label: "#404040", trend: "#A3A8AF" },
+};
+const LAMINAS = {
+  vib: {
+    canvas: "lamina-vib", subId: "vib-sub", noteId: "vib-note",
+    metric: "ppv", decimals: 2, subLabel: "Resultante média (mm/s) por tipo de evento",
+    // Blocos e regularizações não geram vibração: ficam de fora da lâmina de PPV.
+    types: ["Produção", "Ruído da comunidade", "Pré-corte"],
+    note: (split) => `<strong>Atenção,</strong> os valores são a média da resultante (mm/s) das leituras de cada tipo em cada mês. ` +
+      `As barras empilham os tipos e as linhas tracejadas, visíveis entre as barras, indicam o sentido da tendência linear de cada tipo (sobe ou desce). ` +
+      `A barra rosa (sem separação) é a média geral da campanha e aparece em todos os meses; ${split}. ` +
+      `Blocos e regularizações não geram vibração e foram excluídos.`,
+  },
+  air: {
+    canvas: "lamina-air", subId: "air-sub", noteId: "air-note",
+    metric: "air", decimals: 1, subLabel: "Pressão acústica média (dBL) por tipo de evento",
+    types: ["Produção", "Ruído da comunidade", "Pré-corte", "Blocos, regularizações, etc"],
+    note: (split) => `<strong>Atenção,</strong> os valores são a média da pressão acústica (dBL) das leituras de cada tipo em cada mês. ` +
+      `A barra rosa (sem separação) é a média geral da campanha e aparece em todos os meses; ${split}. ` +
+      `As linhas tracejadas, visíveis entre as barras, indicam o sentido da tendência linear de cada tipo (sobe ou desce). ` +
+      `A altura da barra é só a soma dos rótulos.`,
+  },
+};
+
+/* Média mensal (Jan–Dez) de cada série. Sem dado no mês → null (a barra não aparece). */
+function laminaSeries(base, metric, types) {
+  const mean = (rs) => (rs.length ? rs.reduce((s, r) => s + r[metric], 0) / rs.length : null);
+  const valid = (rs) => rs.filter((r) => r[metric] != null);
+  const series = { [SEP]: [] };
+  types.forEach((t) => { series[t] = []; });
+  for (let m = 1; m <= 12; m++) {
+    const rs = base.filter((r) => r.mes === m);
+    series[SEP].push(mean(valid(rs.filter((r) => r.tipo === CAMPANHA))));
+    types.forEach((t) => series[t].push(mean(valid(rs.filter((r) => r.tipo === t)))));
+  }
+  return series;
+}
+
+/* Texto do trecho "de janeiro a abril a base não separa os tipos", a partir dos dados. */
+function describeUnsplit(idx) {
+  if (!idx.length) return "todos os meses com dados separam os tipos";
+  if (idx.length === 1) return `em ${MESES_LONGO[idx[0]]} a base não separa os tipos`;
+  const contiguous = idx.every((m, i) => i === 0 || m === idx[i - 1] + 1);
+  if (contiguous) return `de ${MESES_LONGO[idx[0]]} a ${MESES_LONGO[idx[idx.length - 1]]} a base não separa os tipos`;
+  return `nos meses ${idx.map((i) => meses[i]).join(", ")} a base não separa os tipos`;
+}
+
+/* Desenha as linhas tracejadas entre os centros de cada série em meses consecutivos. */
+const laminaTrend = {
+  id: "laminaTrend",
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      if (!ds.trendColor || meta.hidden) return;
+      const pts = meta.data.map((bar, i) => (ds.data[i] == null ? null
+        : { x: bar.x, y: (bar.y + bar.base) / 2, w: bar.width }));
+      ctx.save();
+      ctx.strokeStyle = ds.trendColor;
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        if (!a || !b) continue;
+        ctx.moveTo(a.x + a.w / 2, a.y);
+        ctx.lineTo(b.x - b.w / 2, b.y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    });
+  },
+};
+
+function renderLamina(key) {
+  const L = LAMINAS[key];
+  const series = laminaSeries(applyFilters({ month: false, type: false }), L.metric, L.types);
+  const names = Object.keys(series);
+  const monthsIdx = [...Array(12).keys()].filter((i) => names.some((n) => series[n][i] != null));
+
+  // Subtítulo: ano (ou período escolhido) e meses com dado
+  const from = document.getElementById("filter-from").value;
+  const to = document.getElementById("filter-to").value;
+  const year = document.getElementById("filter-year").value;
+  let period;
+  if (from || to) {
+    period = `no período ${brDate(from) || "início"} a ${brDate(to) || "fim"}`;
+  } else {
+    const yearPart = year ? `em ${year}` : "em todos os anos";
+    const first = monthsIdx[0], last = monthsIdx[monthsIdx.length - 1];
+    const monthPart = !monthsIdx.length ? "" : first === last
+      ? `, em ${MESES_LONGO[first]}` : `, de ${MESES_LONGO[first]} a ${MESES_LONGO[last]}`;
+    period = yearPart + monthPart;
+  }
+  document.getElementById(L.subId).textContent = `${L.subLabel} ${period}.`;
+
+  if (!monthsIdx.length) {
+    document.getElementById(L.noteId).textContent = "Sem dados para os filtros atuais.";
+  } else {
+    const unsplit = monthsIdx.filter((i) => series[SEP][i] != null && L.types.every((t) => series[t][i] == null));
+    document.getElementById(L.noteId).innerHTML = L.note(describeUnsplit(unsplit));
+  }
+
+  const datasets = names.map((name) => {
+    const st = LAMINA_STYLE[name];
+    return {
+      label: name, data: series[name], stack: "lamina",
+      backgroundColor: st.color, borderWidth: 0, trendColor: st.trend,
+      barPercentage: 0.8, categoryPercentage: 0.88,
+      datalabels: {
+        display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
+        color: st.label, anchor: "center", align: "center",
+        font: { size: 12, weight: "700" },
+        formatter: (v) => fmtNum(v, L.decimals),
+      },
+    };
+  });
+
+  buildChart(L.canvas, null, {
+    type: "bar",
+    data: { labels: meses, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      layout: { padding: { top: 4 } },
+      plugins: {
+        legend: { display: true, position: "bottom",
+          labels: { color: "#404040", boxWidth: 11, boxHeight: 11, font: { size: 12 }, padding: 14 } },
+        tooltip: tooltipCfg({
+          filter: (it) => it.raw != null,
+          callbacks: { label: (it) => `${it.dataset.label}: ${fmtNum(it.raw, L.decimals)}` },
+        }),
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, border: { color: "#bfbfbf" },
+          ticks: { color: "#404040", font: { size: 13 } } },
+        y: { stacked: true, beginAtZero: true, display: false, grid: { display: false } },
+      },
+    },
+    plugins: [laminaTrend],
   });
 }
 

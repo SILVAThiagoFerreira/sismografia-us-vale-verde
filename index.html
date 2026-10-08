@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=10">
+  <link rel="stylesheet" href="./styles.css?v=11">
 </head>
 <body>
   <header class="topbar">
@@ -46,12 +46,20 @@
         <span>FOGO (ID DESMONTE)</span>
         <select id="filter-fire"></select>
       </label>
-      <label class="filter filter--search">
+      <label class="filter">
+        <span>DATA INICIAL</span>
+        <input id="filter-from" type="date" title="Primeiro dia do período">
+      </label>
+      <label class="filter">
+        <span>DATA FINAL</span>
+        <input id="filter-to" type="date" title="Último dia do período">
+      </label>
+      <label class="filter filter--search filter--wide">
         <span>PESQUISAR</span>
         <input id="filter-search" type="search" placeholder="Fogo, ponto, data…" autocomplete="off">
         <div id="search-suggestions" class="search-suggestions" hidden role="listbox" aria-label="Sugestões de busca"></div>
       </label>
-      <label class="filter">
+      <label class="filter filter--wide">
         <span>Critério NBR 9653</span>
         <select id="filter-criterion" title="Critério normativo para o limite de velocidade">
           <option value="nbr">NBR 9653:2018 (limite legal)</option>
@@ -186,6 +194,41 @@
       <div id="airtype-charts" class="type-grid"></div>
     </section>
 
+    <!-- Lâminas mensais por tipo de evento (mesmo formato das lâminas de apresentação) -->
+    <section class="lamina" aria-labelledby="lamina-vib-title">
+      <div class="lamina__head">
+        <div>
+          <h2 class="lamina__title" id="lamina-vib-title">Vibração média por tipo de evento</h2>
+          <p class="lamina__sub" id="vib-sub"></p>
+        </div>
+        <div class="lamina__logos">
+          <img src="./assets/enaex-logo-color.png" alt="Enaex Brasil">
+          <img src="./assets/mineracao-vale-verde-logo.png" alt="Mineração Vale Verde">
+        </div>
+      </div>
+      <p class="lamina__caption">Resultante (PPV) média por mês e por tipo:</p>
+      <div class="lamina__chart"><canvas id="lamina-vib"></canvas></div>
+      <p class="lamina__note" id="vib-note"></p>
+      <p class="lamina__foot">STRICTLY PRIVATE AND CONFIDENTIAL</p>
+    </section>
+
+    <section class="lamina" aria-labelledby="lamina-air-title">
+      <div class="lamina__head">
+        <div>
+          <h2 class="lamina__title" id="lamina-air-title">Pressão acústica média por tipo de evento</h2>
+          <p class="lamina__sub" id="air-sub"></p>
+        </div>
+        <div class="lamina__logos">
+          <img src="./assets/enaex-logo-color.png" alt="Enaex Brasil">
+          <img src="./assets/mineracao-vale-verde-logo.png" alt="Mineração Vale Verde">
+        </div>
+      </div>
+      <p class="lamina__caption">Pressão acústica média por mês e por tipo:</p>
+      <div class="lamina__chart"><canvas id="lamina-air"></canvas></div>
+      <p class="lamina__note" id="air-note"></p>
+      <p class="lamina__foot">STRICTLY PRIVATE AND CONFIDENTIAL</p>
+    </section>
+
     <section class="extra-section">
       <div class="extra-section__head">
         <h2>Séries por eixo (Longitudinal · Vertical · Transversal)</h2>
@@ -240,6 +283,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
-  <script src="./app.js?v=16"></script>
+  <script src="./app.js?v=18"></script>
 </body>
 </html>
