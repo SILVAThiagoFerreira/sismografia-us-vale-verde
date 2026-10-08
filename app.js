@@ -32,7 +32,7 @@ const CRITERIA = {
     label: "NBR 9653:2018",
     short: "NBR 9653",
     desc: "Curva única brasileira (limite legal)",
-    color: "#E20613",
+    color: "#B40E16",
     // Abaixo de 4 Hz: iso-linha do critério de deslocamento (0,6 mm pico): v = 2π·f·0,6
     pts: [[1, 3.77], [4, 15], [15, 20], [40, 50], [250, 50]],
     legal: true,
@@ -63,7 +63,7 @@ const DEFAULT_CRITERION = "nbr";
 
 /* Limites de airblast (dBL pico, Linear). NBR = critério principal. */
 const AIRBLAST_REFS = [
-  { dBL: 134, label: "NBR 9653 (134 dBL · 100 Pa)", color: "#E20613", solid: true },
+  { dBL: 134, label: "NBR 9653 (134 dBL · 100 Pa)", color: "#B40E16", solid: true },
   { dBL: 133, label: "USBM/OSMRE 133 dBL (2 Hz)", color: "#c47b00", solid: false },
   { dBL: 129, label: "129 dBL (sensível / incômodo)", color: "#6c747b", solid: false },
 ];
@@ -86,16 +86,18 @@ function limitAt(critKey, freq) {
 }
 
 const C = {
-  ink: "#38424B",
-  inkFill: "rgba(56,66,75,0.10)",
-  neutral: "#E20613",
+  ink: "#3C4148",
+  inkFill: "rgba(60,65,72,0.10)",
+  neutral: "#B40E16",
+  rose: "#E3B5B9",
+  grey: "#8A9099",
   meta: "#c8c6c4",
-  grid: "rgba(56,66,75,0.06)",
-  text: "#6c747b",
+  grid: "rgba(0,0,0,0.07)",
+  text: "#404040",
   ok: "#107c10",
   amber: "#c47b00",
   axisL: "#1f6feb",
-  axisV: "#E20613",
+  axisV: "#B40E16",
   axisT: "#6f42c1",
 };
 
@@ -613,7 +615,7 @@ function renderVF(data, crit) {
     type: "scatter", label: "Eventos",
     data: pts.map((p) => ({ x: p.x, y: p.y })),
     backgroundColor: pts.map((p) => p.ok ? "rgba(56,66,75,0.45)" : "rgba(226,6,19,0.85)"),
-    borderColor: pts.map((p) => p.ok ? "rgba(56,66,75,0.7)" : "#E20613"),
+    borderColor: pts.map((p) => p.ok ? "rgba(56,66,75,0.7)" : "#B40E16"),
     pointRadius: pts.map((p) => p.ok ? 2.2 : 4),
     pointHoverRadius: 5, order: 3,
   }];
@@ -675,7 +677,7 @@ function renderPPV(data, crit) {
         type: "scatter", label: "PPV por evento (cor = conformidade)",
         data: pts.map((r) => ({ x: r.date.getTime(), y: r.ppv })),
         backgroundColor: pts.map((r) =>
-          (r.domFreq != null && r.ppv > limitAt(crit, r.domFreq)) ? "#E20613" : "rgba(56,66,75,0.45)"),
+          (r.domFreq != null && r.ppv > limitAt(crit, r.domFreq)) ? "#B40E16" : "rgba(56,66,75,0.45)"),
         pointRadius: 2, pointHoverRadius: 5, order: 1,
       }],
     },
@@ -710,7 +712,7 @@ function renderAir(data) {
   const datasets = [{
     type: "scatter", label: "Airblast por evento",
     data: pts.map((r) => ({ x: r.date.getTime(), y: r.air })),
-    backgroundColor: pts.map((r) => r.air > 134 ? "#E20613" : r.air > 129 ? "#c47b00" : "rgba(56,66,75,0.45)"),
+    backgroundColor: pts.map((r) => r.air > 134 ? "#B40E16" : r.air > 129 ? "#c47b00" : "rgba(56,66,75,0.45)"),
     pointRadius: 2, pointHoverRadius: 5, order: AIRBLAST_REFS.length + 1,
   }];
   AIRBLAST_REFS.forEach((ref, i) => {
@@ -745,6 +747,19 @@ function renderAir(data) {
       },
     },
   });
+}
+
+/* Rótulos de valor nas barras (padrão das lâminas Enaex). Só aparecem quando há espaço. */
+function barLabel(color, anchor = "center", align = "center", offset = 0) {
+  return {
+    display: (ctx) => Number(ctx.dataset.data[ctx.dataIndex]) > 0,
+    color,
+    anchor,
+    align,
+    offset,
+    font: { size: 11, weight: "600" },
+    formatter: (v) => fmtNum(v, Number.isInteger(v) ? 0 : 1),
+  };
 }
 
 function monthKey(r) { return r.ano + "-" + String(r.mes).padStart(2, "0"); }
@@ -795,8 +810,8 @@ function renderByPoint(data) {
     data: {
       labels: entries.map((e) => e.p),
       datasets: [
-        { label: "PPV máx. (mm/s)", data: entries.map((e) => e.max), backgroundColor: C.neutral, borderRadius: 2 },
-        { label: "PPV p95 (mm/s)", data: entries.map((e) => e.p95), backgroundColor: C.ink, borderRadius: 2 },
+        { label: "PPV máx. (mm/s)", data: entries.map((e) => e.max), backgroundColor: C.neutral, borderRadius: 0, datalabels: barLabel("#3C4148", "end", "left", 2) },
+        { label: "PPV p95 (mm/s)", data: entries.map((e) => e.p95), backgroundColor: C.grey, borderRadius: 0, datalabels: barLabel("#3C4148", "end", "left", 2) },
       ],
     },
     options: {
@@ -827,8 +842,8 @@ function renderFreqBands(data, crit) {
     data: {
       labels: bands.map((b) => b.label),
       datasets: [
-        { label: "Abaixo do limite", data: bands.map((b) => b.count - b.over), backgroundColor: C.ink, borderRadius: 2 },
-        { label: "Acima do limite", data: bands.map((b) => b.over), backgroundColor: C.neutral, borderRadius: 2 },
+        { label: "Abaixo do limite", data: bands.map((b) => b.count - b.over), backgroundColor: C.ink, borderRadius: 0, datalabels: barLabel("#ffffff", "center") },
+        { label: "Acima do limite", data: bands.map((b) => b.over), backgroundColor: C.neutral, borderRadius: 0, datalabels: barLabel("#ffffff", "center") },
       ],
     },
     options: {
@@ -854,8 +869,8 @@ function renderMonthly(data, crit) {
     data: {
       labels: keys.map(monthLabel),
       datasets: [
-        { label: "Abaixo do limite", data: keys.map((k) => groups[k].ok), backgroundColor: C.ink, borderRadius: 2, stack: "m" },
-        { label: "Acima do limite", data: keys.map((k) => groups[k].over), backgroundColor: C.neutral, borderRadius: 2, stack: "m" },
+        { label: "Abaixo do limite", data: keys.map((k) => groups[k].ok), backgroundColor: C.ink, borderRadius: 0, stack: "m", datalabels: barLabel("#ffffff") },
+        { label: "Acima do limite", data: keys.map((k) => groups[k].over), backgroundColor: C.neutral, borderRadius: 0, stack: "m", datalabels: barLabel("#ffffff") },
       ],
     },
     options: {
@@ -1048,8 +1063,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   Chart.defaults.font.family = "'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif";
   Chart.defaults.font.size = 11;
-  Chart.defaults.color = "#6c747b";
-  Chart.defaults.borderColor = "rgba(56,66,75,0.08)";
+  Chart.defaults.color = "#404040";
+  Chart.defaults.borderColor = "rgba(0,0,0,0.10)";
+  if (window.ChartDataLabels) {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.set("plugins.datalabels", { display: false });
+  }
   Object.assign(Chart.defaults.plugins.tooltip, tooltipBase());
   initTable();
   loadSheet().catch((e) => console.error(e));
