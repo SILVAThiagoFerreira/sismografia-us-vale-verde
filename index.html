@@ -74,12 +74,11 @@
       <div class="kpi">
         <p class="kpi__label">EVENTOS MEDIDOS</p>
         <p class="kpi__value" id="kpi-count">—</p>
-        <p class="kpi__sub" id="kpi-count-hint">&nbsp;</p>
       </div>
       <div class="kpi">
         <p class="kpi__label">PPV MÁXIMO</p>
         <p class="kpi__value" id="kpi-ppv">—</p>
-        <p class="kpi__sub" id="kpi-ppv-hint">Velocidade resultante (mm/s)</p>
+        <p class="kpi__sub" id="kpi-ppv-hint">&nbsp;</p>
       </div>
       <div class="kpi">
         <p class="kpi__label">CONFORMIDADE VIBRAÇÃO</p>
@@ -89,7 +88,7 @@
       <div class="kpi">
         <p class="kpi__label">AIRBLAST MÁXIMO</p>
         <p class="kpi__value" id="kpi-air">—</p>
-        <p class="kpi__sub" id="kpi-air-hint">Sobrepressão acústica — dBL pico (Linear)</p>
+        <p class="kpi__sub" id="kpi-air-hint">&nbsp;</p>
       </div>
     </section>
 
@@ -97,7 +96,7 @@
       <div class="chart-block">
         <div class="chart-block__head">
           <h2>Velocidade × Frequência — NBR 9653 e referências</h2>
-          <p>Cada ponto é um evento. Linhas: limite de PPV por frequência — NBR 9653:2018 (curva única, sólida) e referências DIN 4150-3 / USBM (tracejadas).</p>
+          <p>Cada ponto é um evento · linha sólida: NBR 9653 · tracejadas: referências DIN 4150-3 e USBM</p>
         </div>
         <div class="chart-block__body chart-block__body--vf"><canvas id="chart-vf"></canvas></div>
       </div>
@@ -105,7 +104,7 @@
       <div class="chart-block">
         <div class="chart-block__head">
           <h2>Velocidade resultante (PPV) por evento</h2>
-          <p id="sub-ppv">Ordenado por data · cor = conformidade ao critério selecionado</p>
+          <p id="sub-ppv">Vermelho = acima do critério selecionado</p>
         </div>
         <div class="chart-block__body chart-block__body--tall"><canvas id="chart-ppv"></canvas></div>
       </div>
@@ -113,7 +112,7 @@
       <div class="chart-block">
         <div class="chart-block__head">
           <h2>Sobrepressão acústica (airblast) por evento</h2>
-          <p>Ordenado por data · linhas: 134 dBL (NBR 9653), 133 e 129 dBL (referências)</p>
+          <p>Linha vermelha: limite NBR 9653 (134 dBL)</p>
         </div>
         <div class="chart-block__body chart-block__body--tall"><canvas id="chart-air"></canvas></div>
       </div>
@@ -181,7 +180,7 @@
       <div class="data-section__head">
         <div>
           <h2>Consulta da planilha</h2>
-          <p>Eventos conforme os filtros acima · clique no cabeçalho para ordenar · exporte para Excel</p>
+          <p>Eventos dos filtros acima · clique no cabeçalho para ordenar</p>
         </div>
         <div class="data-tools">
           <input id="table-search" type="search" placeholder="Filtrar a tabela…" autocomplete="off">
@@ -216,21 +215,16 @@
     </section>
 
     <p class="source-note">
-      <strong>Fonte:</strong> planilha de sismografia da US Vale Verde (3084 eventos, jul/2020–jun/2026), lida em tempo real.
-      <strong>Critério de conformidade:</strong> NBR 9653:2018 — curva única de PPV×frequência (15→20 mm/s em 4–15 Hz; 20→50 mm/s em 15–40 Hz; 50 mm/s acima de 40 Hz), derivada da BS 7385-2.
-      Abaixo de 4 Hz aplica-se critério de deslocamento (0,6 mm pico). DIN 4150-3 e USBM RI 8507 são exibidas como <em>referências internacionais</em> — a NBR 9653 não classifica estruturas em tipos.
-      <strong>Airblast</strong> em dBL pico (Linear); limite NBR = 134 dBL (≈100 Pa).
-      <strong>Notas:</strong> frequência dominante = frequência do eixo de maior velocidade; PPV = velocidade resultante; distâncias/cargas inconsistentes são descartadas; a equação v = K·DE<sup>−β</sup> é método de previsão (USBM), não prescrição textual da NBR.
+      <strong>Fonte:</strong> planilha de sismografia US Vale Verde, lida em tempo real. <strong>Critério:</strong> NBR 9653:2018. Frequência dominante = eixo de maior velocidade.
     </p>
   </main>
 
   <footer class="confidential">
-    <span>Sismografia · US Vale Verde</span>
     <span>STRICTLY PRIVATE AND CONFIDENTIAL</span>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
-  <script src="./app.js?v=7"></script>
+  <script src="./app.js?v=8"></script>
 </body>
 </html>

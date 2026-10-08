@@ -584,8 +584,6 @@ function renderKpis(data, crit) {
   const maxAir = airs.length ? Math.max(...airs) : null;
 
   document.getElementById("kpi-count").textContent = fmtInt(data.length);
-  document.getElementById("kpi-count-hint").textContent =
-    data.length ? `${fmtInt(data.length)} eventos no filtro` : " ";
 
   const ppvEl = document.getElementById("kpi-ppv");
   ppvEl.textContent = maxPpv != null ? fmtNum(maxPpv, 2) + " mm/s" : "—";
@@ -604,7 +602,7 @@ function renderKpis(data, crit) {
   airEl.textContent = maxAir != null ? fmtNum(maxAir, 1) + " dBL" : "—";
   airEl.style.color = (maxAir != null && maxAir > nbrAir) ? C.neutral : C.ink;
   document.getElementById("kpi-air-hint").textContent =
-    airOver > 0 ? `${fmtInt(airOver)} acima de ${nbrAir} dBL (NBR)` : `Referência NBR: ${nbrAir} dBL`;
+    airOver > 0 ? `${fmtInt(airOver)} acima de ${nbrAir} dBL` : `Limite NBR: ${nbrAir} dBL`;
 }
 
 function renderVF(data, crit) {
