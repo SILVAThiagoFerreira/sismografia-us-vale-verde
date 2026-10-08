@@ -1,23 +1,23 @@
 /* ============================================================
    Sismografia · NBR 9653 — US Vale Verde
-   Mesma linguagem visual do hub: #2E2E2E + #3E7A57, cards brancos
+   Mesma linguagem visual do hub: #38424B + #E20613, cards brancos
    ============================================================ */
 
 :root {
   --bg: #f5f6f7;
   --surface: #ffffff;
-  --ink: #2E2E2E;
+  --ink: #38424B;
   --ink-2: #4c555d;
   --muted: #6c747b;
   --faint: #9aa1a7;
   --rule: #e6e8ea;
   --rule-soft: #f0f1f3;
-  --gray: #2E2E2E;
-  --red: #3E7A57;
-  --green: #3E7A57;
-  --amber: #B8A23F;
-  --topbar: #2E2E2E;
-  --topbar-accent: #B8A23F;
+  --gray: #38424B;
+  --red: #E20613;
+  --green: #107c10;
+  --amber: #c47b00;
+  --topbar: #38424B;
+  --topbar-accent: #E20613;
   --radius: 4px;
   --shadow: 0 1px 3px rgba(56,66,75,.10), 0 1px 2px rgba(56,66,75,.06);
   --font: "Segoe UI", "Segoe UI Web", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
@@ -500,10 +500,10 @@ body {
 
 /* ---------- Padrão Enaex (lâminas): títulos vermelhos, subtítulo cinza, filete ---------- */
 :root {
-  --enaex-red: #3E7A57;
-  --enaex-slate: #2E2E2E;
+  --enaex-red: #B40E16;
+  --enaex-slate: #3C4148;
   --enaex-grey: #8A9099;
-  --enaex-rose: #8FBC9A;
+  --enaex-rose: #E3B5B9;
   --enaex-text: #404040;
 }
 .chart-block,
