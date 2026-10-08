@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./styles.css?v=8">
 </head>
 <body>
   <header class="topbar">
@@ -169,6 +169,14 @@
       </div>
     </section>
 
+    <section class="type-section">
+      <div class="extra-section__head">
+        <h2>Gráficos por tipo de evento</h2>
+        <p id="sub-type">Velocidade × frequência de cada categoria · linha: critério selecionado</p>
+      </div>
+      <div id="type-charts" class="type-grid"></div>
+    </section>
+
     <section class="extra-section">
       <div class="extra-section__head">
         <h2>Séries por eixo (Longitudinal · Vertical · Transversal)</h2>
@@ -219,6 +227,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
-  <script src="./app.js?v=12"></script>
+  <script src="./app.js?v=14"></script>
 </body>
 </html>

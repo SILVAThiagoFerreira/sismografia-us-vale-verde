@@ -458,6 +458,7 @@ function render() {
   const { data, crit } = filtered();
   renderKpis(data, crit);
   renderVF(data, crit);
+  renderByType(data, crit);
   renderPPV(data, crit);
   renderAir(data);
   renderTrendPPV(data);
@@ -960,7 +961,6 @@ function renderAxes(data) {
       const card = document.createElement("div");
       card.className = "extra-card";
       const id = "extra-" + d.key + "-" + (yTitle === "Hz" ? "f" : "v");
-      card.style.borderTop = `3px solid ${d.color}`;
       card.innerHTML = `<p class="extra-card__title"><span class="extra-card__swatch" style="background:${d.color}"></span>${title}</p><div class="extra-card__canvas"><canvas id="${id}"></canvas></div>`;
       container.appendChild(card);
       if (!keys.length) continue;
@@ -992,6 +992,91 @@ function renderAxes(data) {
   }
 }
 
+
+/* ===================== Gráficos por tipo de evento ===================== */
+/* Um gráfico de velocidade × frequência por categoria, com a curva do critério selecionado. */
+function renderByType(data, crit) {
+  const container = document.getElementById("type-charts");
+  if (!container) return;
+  Object.keys(CHARTS).filter((id) => id.startsWith("type-")).forEach((id) => {
+    CHARTS[id].destroy();
+    delete CHARTS[id];
+  });
+  container.innerHTML = "";
+
+  const groups = {};
+  data.forEach((r) => { (groups[r.tipo] = groups[r.tipo] || []).push(r); });
+  const order = TIPO_ORDER.filter((t) => groups[t]).concat(Object.keys(groups).filter((t) => !TIPO_COLOR[t]));
+  if (!order.length) {
+    container.innerHTML = `<p class="type-empty">Nenhum evento com os filtros atuais.</p>`;
+    return;
+  }
+
+  const c = CRITERIA[crit];
+  order.forEach((tipo, i) => {
+    const recs = groups[tipo];
+    const pts = recs.filter((r) => r.ppv != null && r.domFreq != null && r.ppv > 0 && r.domFreq > 0);
+    const ok = pts.filter((r) => r.ppv <= limitAt(crit, r.domFreq)).length;
+    const color = TIPO_COLOR[tipo] || "#B8BCC2";
+    const id = "type-" + i;
+
+    const card = document.createElement("div");
+    card.className = "type-card";
+    const conf = pts.length ? `${fmtNum(ok / pts.length * 100, 1)}% abaixo de ${c.short}` : "sem PPV/frequência";
+    card.innerHTML =
+      `<div class="type-card__head"><span class="type-card__swatch" style="background:${color}"></span>` +
+      `<p class="type-card__title">${escapeText(tipo)}</p></div>` +
+      `<p class="type-card__meta">${fmtInt(recs.length)} eventos · ${conf}</p>` +
+      `<div class="type-card__canvas"><canvas id="${id}"></canvas></div>`;
+    container.appendChild(card);
+
+    buildChart(id, null, {
+      data: {
+        datasets: [
+          {
+            type: "scatter", label: tipo, isEvents: true,
+            data: pts.map((r) => ({ x: r.domFreq, y: r.ppv, rec: r })),
+            backgroundColor: color, borderColor: "#ffffff", borderWidth: 0.6,
+            pointRadius: 3.6, pointHoverRadius: 6, order: 3,
+          },
+          {
+            type: "line", label: c.label,
+            data: c.pts.map(([x, y]) => ({ x, y })),
+            borderColor: c.color, borderWidth: 2.2, pointRadius: 0, tension: 0, fill: false, order: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: true },
+        plugins: {
+          legend: {
+            display: true, position: "bottom",
+            labels: { color: C.text, boxWidth: 12, font: { size: 10 }, padding: 10, filter: (item, data) => !data.datasets[item.datasetIndex].isEvents },
+          },
+          tooltip: eventTooltip((it) => {
+            const p = it.raw.rec;
+            const lim = limitAt(crit, p.domFreq);
+            return [
+              `Data: ${fmtDate(p.date)}`, `Ponto: ${p.ponto}`, `PPV: ${fmtNum(p.ppv, 2)} mm/s`,
+              `Freq.: ${fmtNum(p.domFreq, 1)} Hz`,
+              p.ppv <= lim ? `✓ abaixo de ${c.short} (${fmtNum(lim, 1)} mm/s)` : `✗ acima de ${c.short} (${fmtNum(lim, 1)} mm/s)`,
+            ];
+          }),
+        },
+        scales: {
+          x: { type: "logarithmic", min: 1, max: 250,
+            title: { display: true, text: "Frequência dominante (Hz)", color: C.text, font: { size: 10, weight: "600" } },
+            ticks: { color: C.text, font: { size: 9 } }, grid: { color: C.grid } },
+          y: { type: "logarithmic", min: 0.05, max: 100,
+            title: { display: true, text: "PPV (mm/s)", color: C.text, font: { size: 10, weight: "600" } },
+            ticks: { color: C.text, font: { size: 9 }, callback: (v) => Number.isInteger(v) ? v : "" },
+            grid: { color: C.grid } },
+        },
+      },
+    });
+  });
+}
 
 /* ===================== Helpers ===================== */
 function buildChart(canvasId, _kind, config) {
