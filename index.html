@@ -7,11 +7,11 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=13">
+  <link rel="stylesheet" href="./styles.css?v=15">
 </head>
 <body>
   <header class="topbar">
-    <img class="topbar__logo" src="./assets/enaex-logo-white.png" alt="ENAEX">
+    <img class="topbar__logo" src="./assets/enaex-logo-color.png" alt="ENAEX">
     <span class="topbar__title">Sismografia</span>
     <span class="topbar__unit">US VALE VERDE</span>
   </header>
@@ -19,7 +19,7 @@
   <main class="page">
     <section class="page-head">
       <div class="page-head__title">
-        <p class="eyebrow">SISMOGRAFIA · NBR 9653:2018</p>
+        <p class="eyebrow">Sismografia · NBR 9653:2018 · Vale Verde</p>
         <h1>Vibração e Sobrepressão do Desmonte</h1>
       </div>
       <button id="base-export" type="button" class="page-head__action">Exportar base de dados</button>
@@ -195,6 +195,9 @@
     </section>
 
     <!-- Lâminas mensais por tipo de evento (mesmo formato das lâminas de apresentação) -->
+    <div class="lamina-actions">
+      <button id="lamina-export" type="button" class="lamina-export">Exportar para PowerPoint</button>
+    </div>
     <section class="lamina" aria-labelledby="lamina-vib-title">
       <div class="lamina__head">
         <div>
@@ -283,6 +286,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
-  <script src="./app.js?v=18"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+  <script src="./app.js?v=20"></script>
 </body>
 </html>

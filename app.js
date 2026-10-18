@@ -92,7 +92,8 @@ const C = {
   rose: "#E3B5B9",
   grey: "#8A9099",
   meta: "#c8c6c4",
-  grid: "rgba(0,0,0,0.07)",
+  grid: "transparent",
+  axis: "#C4C7CC",
   text: "#404040",
   ok: "#107c10",
   amber: "#c47b00",
@@ -1266,19 +1267,14 @@ const LAMINAS = {
     metric: "ppv", decimals: 2, subLabel: "Resultante média (mm/s) por tipo de evento",
     // Blocos e regularizações não geram vibração: ficam de fora da lâmina de PPV.
     types: ["Produção", "Ruído da comunidade", "Pré-corte"],
-    note: (split) => `<strong>Atenção,</strong> os valores são a média da resultante (mm/s) das leituras de cada tipo em cada mês. ` +
-      `As barras empilham os tipos e as linhas tracejadas, visíveis entre as barras, indicam o sentido da tendência linear de cada tipo (sobe ou desce). ` +
-      `A barra rosa (sem separação) é a média geral da campanha e aparece em todos os meses; ${split}. ` +
+    note: (split) => `Linhas tracejadas: tendência de cada tipo. Barra rosa: campanha completa; ${split}. ` +
       `Blocos e regularizações não geram vibração e foram excluídos.`,
   },
   air: {
     canvas: "lamina-air", subId: "air-sub", noteId: "air-note",
     metric: "air", decimals: 1, subLabel: "Pressão acústica média (dBL) por tipo de evento",
     types: ["Produção", "Ruído da comunidade", "Pré-corte", "Blocos, regularizações, etc"],
-    note: (split) => `<strong>Atenção,</strong> os valores são a média da pressão acústica (dBL) das leituras de cada tipo em cada mês. ` +
-      `A barra rosa (sem separação) é a média geral da campanha e aparece em todos os meses; ${split}. ` +
-      `As linhas tracejadas, visíveis entre as barras, indicam o sentido da tendência linear de cada tipo (sobe ou desce). ` +
-      `A altura da barra é só a soma dos rótulos.`,
+    note: (split) => `Linhas tracejadas: tendência de cada tipo. Barra rosa: campanha completa; ${split}.`,
   },
 };
 
@@ -1332,7 +1328,9 @@ const laminaTrend = {
   },
 };
 
-function renderLamina(key) {
+/* Modelo da lâmina (dados, subtítulo e nota) com os filtros atuais.
+   Usado pela tela e pela exportação para PowerPoint — uma só fonte de dados. */
+function laminaModel(key) {
   const L = LAMINAS[key];
   const series = laminaSeries(applyFilters({ month: false, type: false }), L.metric, L.types);
   const names = Object.keys(series);
@@ -1352,14 +1350,20 @@ function renderLamina(key) {
       ? `, em ${MESES_LONGO[first]}` : `, de ${MESES_LONGO[first]} a ${MESES_LONGO[last]}`;
     period = yearPart + monthPart;
   }
-  document.getElementById(L.subId).textContent = `${L.subLabel} ${period}.`;
+  const subText = `${L.subLabel} ${period}.`;
 
-  if (!monthsIdx.length) {
-    document.getElementById(L.noteId).textContent = "Sem dados para os filtros atuais.";
-  } else {
+  let noteText = "Sem dados para os filtros atuais.";
+  if (monthsIdx.length) {
     const unsplit = monthsIdx.filter((i) => series[SEP][i] != null && L.types.every((t) => series[t][i] == null));
-    document.getElementById(L.noteId).innerHTML = L.note(describeUnsplit(unsplit));
+    noteText = L.note(describeUnsplit(unsplit));
   }
+  return { L, series, names, monthsIdx, subText, noteText };
+}
+
+function renderLamina(key) {
+  const { L, series, names, subText, noteText } = laminaModel(key);
+  document.getElementById(L.subId).textContent = subText;
+  document.getElementById(L.noteId).textContent = noteText;
 
   const datasets = names.map((name) => {
     const st = LAMINA_STYLE[name];
@@ -1392,13 +1396,198 @@ function renderLamina(key) {
         }),
       },
       scales: {
-        x: { stacked: true, grid: { display: false }, border: { color: "#bfbfbf" },
+        x: { stacked: true, grid: { display: false }, border: { color: C.axis },
           ticks: { color: "#404040", font: { size: 13 } } },
         y: { stacked: true, beginAtZero: true, display: false, grid: { display: false } },
       },
     },
     plugins: [laminaTrend],
   });
+}
+
+/* ===================== Exportação para PowerPoint (lâminas) ===================== */
+/* Gera um .pptx com uma lâmina por slide (16:9). Textos, filetes, logos e gráfico são
+   objetos nativos do PowerPoint; o gráfico é editável (barras empilhadas + linhas tracejadas
+   de tendência). Os dados vêm de laminaModel(), o mesmo modelo da tela. */
+const PPT_W = 13.333, PPT_M = 0.6, PPT_CW = PPT_W - 2 * PPT_M;
+const PPT_FONT = "Segoe UI";
+const PPT_LOGO_PATHS = ["./assets/enaex-logo-color.png", "./assets/mineracao-vale-verde-logo.png"];
+const PPT_TREND = "Tendência · ";
+const PPT_FOOT = "STRICTLY PRIVATE AND CONFIDENTIAL";
+
+async function loadLogoForPpt(path) {
+  const blob = await (await fetch(path, { cache: "no-store" })).blob();
+  const dataUrl = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+  const bmp = await createImageBitmap(blob);
+  const ratio = bmp.width / bmp.height;
+  if (bmp.close) bmp.close();
+  return { data: dataUrl, ratio };
+}
+
+/* Ponto médio de cada segmento empilhado (onde a tendência tracejada passa), como no gráfico da tela. */
+function laminaTrendValues(series, names, name) {
+  return series[name].map((v, i) => {
+    if (v == null) return null;
+    let base = 0;
+    for (const k of names) {
+      if (k === name) break;
+      base += series[k][i] ?? 0;
+    }
+    return base + v / 2;
+  });
+}
+
+function laminaPeriodFile() {
+  const from = document.getElementById("filter-from").value;
+  const to = document.getElementById("filter-to").value;
+  const year = document.getElementById("filter-year").value;
+  if (from || to) return `${brDate(from) || "início"} a ${brDate(to) || "fim"}`.replace(/\//g, ".");
+  return year || "todos os anos";
+}
+
+function addLaminaSlide(pptx, lamina, logos) {
+  const { m, title, caption } = lamina;
+  const { L, series, names } = m;
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+
+  // Logos no canto superior direito (mesma ordem da página)
+  const logoH = 0.42;
+  let x = PPT_W - PPT_M;
+  [...logos].reverse().forEach((lg) => {
+    const w = logoH * lg.ratio;
+    x -= w;
+    slide.addImage({ data: lg.data, x, y: 0.42, w, h: logoH });
+    x -= 0.3;
+  });
+
+  slide.addText(title.toUpperCase(), { x: PPT_M, y: 0.36, w: 9.6, h: 0.62, margin: 0,
+    fontFace: PPT_FONT, fontSize: 24, color: "B5121B", valign: "middle" });
+  slide.addText(m.subText, { x: PPT_M, y: 1.02, w: 10.2, h: 0.32, margin: 0,
+    fontFace: PPT_FONT, fontSize: 12, color: "4A4A4A", valign: "middle" });
+  slide.addText(caption, { x: PPT_M, y: 1.6, w: PPT_CW, h: 0.34, margin: 0,
+    fontFace: PPT_FONT, fontSize: 13.5, color: "3C3F44", valign: "bottom" });
+  slide.addShape(pptx.shapes.LINE, { x: PPT_M, y: 2.02, w: PPT_CW, h: 0,
+    line: { color: "E5E5E5", width: 0.75 } });
+
+  const bars = names.map((n) => ({ name: n, labels: meses, values: series[n] }));
+  const trends = names.map((n) => ({ name: PPT_TREND + n, labels: meses,
+    values: laminaTrendValues(series, names, n) }));
+  const fmt = L.decimals === 1 ? "0.0;-0.0;;" : "0.00;-0.00;;";
+  slide.addChart([
+    { type: pptx.charts.BAR, data: bars },
+    { type: pptx.charts.LINE, data: trends },
+  ], {
+    x: PPT_M, y: 2.12, w: PPT_CW, h: 4.02,
+    barDir: "col", barGrouping: "stacked", barGapWidthPct: 42,
+    chartColors: names.map((n) => LAMINA_STYLE[n].color.slice(1)),
+    showValue: true, dataLabelPosition: "ctr", dataLabelFormatCode: fmt,
+    dataLabelFontSize: 9, dataLabelFontBold: true, dataLabelColor: "404040", dataLabelFontFace: PPT_FONT,
+    valAxisHidden: true, valAxisLineShow: false, valAxisMinVal: 0,
+    valGridLine: { style: "none" }, catGridLine: { style: "none" },
+    catAxisLineShow: true, catAxisLineColor: "C4C7CB",
+    catAxisLabelFontSize: 10, catAxisLabelColor: "404040", catAxisLabelFontFace: PPT_FONT,
+    showLegend: true, legendPos: "b", legendFontSize: 9, legendColor: "404040", legendFontFace: PPT_FONT,
+    lineDash: "dash", lineSize: 1, lineDataSymbol: "none", lineSmooth: false,
+    displayBlanksAs: "gap", showTitle: false,
+  });
+
+  slide.addText(m.noteText, { x: PPT_M, y: 6.28, w: PPT_CW, h: 0.5, margin: 0, valign: "top",
+    fontFace: PPT_FONT, fontSize: 10, color: "4A4A4A" });
+  slide.addShape(pptx.shapes.LINE, { x: PPT_M, y: 6.9, w: PPT_CW, h: 0,
+    line: { color: "3C3F44", width: 0.75 } });
+  slide.addText(PPT_FOOT, { x: PPT_M + PPT_CW - 6, y: 6.96, w: 6, h: 0.26, margin: 0, align: "right",
+    fontFace: PPT_FONT, fontSize: 7.5, color: "4A4A4A", charSpacing: 0.5 });
+}
+
+/* Ajustes que a API do PptxGenJS não expõe por série: cor do rótulo de cada barra,
+   cor das linhas de tendência, rótulos e pontos vazios, e legenda sem as tendências.
+   Atua sobre o XML dos gráficos (o pacote .pptx é um zip). */
+async function patchPptxCharts(blob) {
+  const zip = await window.JSZip.loadAsync(blob);
+  const chartFiles = Object.keys(zip.files).filter((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f));
+  for (const file of chartFiles) {
+    let xml = await zip.file(file).async("string");
+    xml = xml.replace(/<c:pt idx="\d+"><c:v><\/c:v><\/c:pt>/g, ""); // ponto vazio = sem barra/rótulo
+    const hiddenLegend = [];
+    xml = xml.replace(/<c:ser>[\s\S]*?<\/c:ser>/g, (ser) => {
+      const name = (ser.match(/<c:tx>[\s\S]*?<c:v>([^<]*)<\/c:v>/) || [])[1] || "";
+      if (name.startsWith(PPT_TREND)) {
+        const color = LAMINA_STYLE[name.slice(PPT_TREND.length)].trend.slice(1).toUpperCase();
+        hiddenLegend.push((ser.match(/<c:idx val="(\d+)"\/>/) || [])[1]);
+        return ser.replace(/<a:srgbClr val="[0-9A-Fa-f]{6}"\/>/g, `<a:srgbClr val="${color}"/>`)
+          .replace(/<c:showVal val="1"\/>/g, '<c:showVal val="0"/>');
+      }
+      const st = LAMINA_STYLE[name];
+      if (!st) return ser;
+      return ser
+        .replace(/(<c:spPr><a:solidFill>)<a:srgbClr val="[0-9A-Fa-f]{6}"\/>/,
+          `$1<a:srgbClr val="${st.color.slice(1).toUpperCase()}"/>`)
+        .replace(/(<c:dLbls>[\s\S]*?<a:defRPr[^>]*><a:solidFill>)<a:srgbClr val="[0-9A-Fa-f]{6}"\/>/,
+          `$1<a:srgbClr val="${st.label.slice(1).toUpperCase()}"/>`);
+    });
+    if (hiddenLegend.length) {
+      const entries = hiddenLegend.filter(Boolean)
+        .map((i) => `<c:legendEntry><c:idx val="${i}"/><c:delete val="1"/></c:legendEntry>`).join("");
+      xml = xml.replace(/(<c:legendPos val="[a-z]+"\/>)/, `$1${entries}`);
+    }
+    zip.file(file, xml);
+  }
+  return zip.generateAsync({ type: "blob",
+    mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+}
+
+async function exportLaminasPptx() {
+  const btn = document.getElementById("lamina-export");
+  if (!window.PptxGenJS || !window.JSZip) {
+    setStatus("error", "Biblioteca de PowerPoint não carregou. Verifique sua conexão.");
+    return;
+  }
+  const models = ["vib", "air"].map(laminaModel);
+  if (!models.some((m) => m.monthsIdx.length)) {
+    setStatus("error", "Sem dados para exportar com os filtros atuais.");
+    return;
+  }
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = "Gerando…";
+  try {
+    const logos = await Promise.all(PPT_LOGO_PATHS.map(loadLogoForPpt));
+    const pptx = new window.PptxGenJS();
+    pptx.layout = "LAYOUT_WIDE";
+    pptx.title = "Sismografia - Vibração e Pressão Acústica";
+    pptx.company = "Enaex";
+    models.forEach((m) => {
+      const section = document.getElementById(m.L.canvas).closest(".lamina");
+      addLaminaSlide(pptx, {
+        m,
+        title: section.querySelector(".lamina__title").textContent,
+        caption: section.querySelector(".lamina__caption").textContent,
+      }, logos);
+    });
+    const blob = await patchPptxCharts(await pptx.write({ outputType: "blob" }));
+    const name = `Sismografia - Vibração e Pressão Acústica - ${laminaPeriodFile()}.pptx`
+      .replace(/[\\/:*?"<>|]/g, "-");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {
+    console.error(e);
+    setStatus("error", "Não foi possível gerar o PowerPoint. Tente novamente.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 }
 
 /* ===================== Helpers ===================== */
@@ -1465,11 +1654,11 @@ function lineOpts(yTitle, extra) {
     plugins: Object.assign({}, base.plugins, (extra && extra.plugins) || {}),
   });
 }
-function scaleTicks() { return { ticks: { color: C.text, font: { size: 10 }, maxRotation: 45, autoSkip: true }, border: { color: C.grid } }; }
+function scaleTicks() { return { ticks: { color: C.text, font: { size: 10 }, maxRotation: 45, autoSkip: true }, border: { color: C.axis } }; }
 function scaleY(title) {
   return {
     title: { display: !!title, text: title, color: C.text, font: { size: 11, weight: "600" } },
-    ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, border: { color: C.grid },
+    ticks: { color: C.text, font: { size: 10 } }, grid: { color: C.grid }, border: { color: C.axis },
   };
 }
 
@@ -1493,7 +1682,7 @@ document.addEventListener("DOMContentLoaded", () => {
   Chart.defaults.font.family = "'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif";
   Chart.defaults.font.size = 11;
   Chart.defaults.color = "#404040";
-  Chart.defaults.borderColor = "rgba(0,0,0,0.10)";
+  Chart.defaults.borderColor = "#C4C7CC";
   if (window.ChartDataLabels) {
     Chart.register(ChartDataLabels);
     Chart.defaults.set("plugins.datalabels", { display: false });
@@ -1501,6 +1690,7 @@ document.addEventListener("DOMContentLoaded", () => {
   Object.assign(Chart.defaults.plugins.tooltip, tooltipBase());
   initTable();
   document.getElementById("base-export").onclick = exportBaseCsv;
+  document.getElementById("lamina-export").onclick = exportLaminasPptx;
   initBackToTop();
   loadSheet().catch((e) => console.error(e));
   setInterval(() => loadSheet().catch(() => {}), 10 * 60 * 1000);
