@@ -1422,7 +1422,7 @@ const LAMINA_STYLE = {
 const LAMINAS = {
   vib: {
     canvas: "lamina-vib", subId: "vib-sub", noteId: "vib-note",
-    metric: "ppv", decimals: 2, subLabel: "Resultante média (mm/s) por tipo de evento",
+    metric: "ppv", decimals: 2, subLabel: "Resultante (PVS) média (mm/s) por tipo de evento",
     // Blocos e regularizações não geram vibração: ficam de fora da lâmina de PPV.
     types: ["Produção", "Ruído da comunidade", "Pré-corte"],
     note: (split) => `Linhas tracejadas: tendência de cada tipo. Barra rosa: campanha completa; ${split}. ` +
@@ -1523,17 +1523,22 @@ function renderLamina(key) {
   document.getElementById(L.subId).textContent = subText;
   document.getElementById(L.noteId).textContent = noteText;
 
+  // Cada coluna mensal soma 100% da altura: a proporção de cada série sobre o total do mês.
+  // Os valores reais (mm/s ou dBL) ficam em rawData para rótulos e tooltip.
+  const monthTotal = meses.map((_, i) => names.reduce((s, n) => s + (series[n][i] ?? 0), 0));
   const datasets = names.map((name) => {
     const st = LAMINA_STYLE[name];
+    const raw = series[name];
     return {
-      label: name, data: series[name], stack: "lamina",
+      label: name, rawData: raw, stack: "lamina",
+      data: raw.map((v, i) => (v == null || !monthTotal[i] ? null : (v / monthTotal[i]) * 100)),
       backgroundColor: st.color, borderWidth: 0, trendColor: st.trend,
       barPercentage: 0.8, categoryPercentage: 0.88,
       datalabels: {
         display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
         color: st.label, anchor: "center", align: "center",
         font: { size: 12, weight: "700" },
-        formatter: (v) => fmtNum(v, L.decimals),
+        formatter: (v, ctx) => fmtNum(ctx.dataset.rawData[ctx.dataIndex], L.decimals),
       },
     };
   });
@@ -1550,13 +1555,13 @@ function renderLamina(key) {
           labels: { color: "#404040", boxWidth: 11, boxHeight: 11, font: { size: 12 }, padding: 14 } },
         tooltip: tooltipCfg({
           filter: (it) => it.raw != null,
-          callbacks: { label: (it) => `${it.dataset.label}: ${fmtNum(it.raw, L.decimals)}` },
+          callbacks: { label: (it) => `${it.dataset.label}: ${fmtNum(it.dataset.rawData[it.dataIndex], L.decimals)} (${fmtNum(it.raw, 1)}%)` },
         }),
       },
       scales: {
         x: { stacked: true, grid: { display: false }, border: { color: C.axis },
           ticks: { color: "#404040", font: { size: 13 } } },
-        y: { stacked: true, beginAtZero: true, display: false, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, min: 0, max: 100, display: false, grid: { display: false } },
       },
     },
     plugins: [laminaTrend],

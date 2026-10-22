@@ -116,7 +116,7 @@
           <h2>Velocidade resultante (PPV) por evento</h2>
           <p id="sub-ppv">Cor = categoria do evento · clique na legenda para filtrar</p>
         </div>
-        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-ppv"></canvas></div>
+        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-ppv"></canvas></div>
       </div>
 
       <div class="chart-block">
@@ -124,7 +124,7 @@
           <h2>Sobrepressão acústica (airblast) por evento</h2>
           <p>Linha vermelha: limite NBR 9653 (134 dBL)</p>
         </div>
-        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-air"></canvas></div>
+        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-air"></canvas></div>
       </div>
 
       <div class="chart-row">
@@ -150,14 +150,14 @@
             <h2>PPV por ponto de monitoramento</h2>
             <p>Máximo e percentil 95 da velocidade resultante</p>
           </div>
-          <div class="chart-block__body chart-block__body--tall"><canvas id="chart-by-point"></canvas></div>
+          <div class="chart-block__body chart-block__body--sq"><canvas id="chart-by-point"></canvas></div>
         </div>
         <div class="chart-block chart-block--half">
           <div class="chart-block__head">
             <h2>Distribuição de frequências</h2>
             <p>Eventos por faixa da NBR 9653 (frequência dominante)</p>
           </div>
-          <div class="chart-block__body"><canvas id="chart-freq"></canvas></div>
+          <div class="chart-block__body chart-block__body--sq"><canvas id="chart-freq"></canvas></div>
         </div>
       </div>
 
@@ -166,7 +166,7 @@
           <h2>Eventos por mês × conformidade</h2>
           <p>Quantidade de eventos por mês, separada entre abaixo e acima do critério selecionado</p>
         </div>
-        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-monthly"></canvas></div>
+        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-monthly"></canvas></div>
       </div>
 
       <div class="chart-block">
@@ -194,7 +194,7 @@
           <h2>Distância escalonada × PPV</h2>
           <p>SD = R / √Q (m/√kg) · linha de regressão v = k·SD<sup>−β</sup> ajustada aos dados</p>
         </div>
-        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-scaled"></canvas></div>
+        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-scaled"></canvas></div>
       </div>
     </section>
 
@@ -229,7 +229,7 @@
           <img src="./assets/mineracao-vale-verde-logo.png" alt="Mineração Vale Verde">
         </div>
       </div>
-      <p class="lamina__caption">Resultante (PPV) média por mês e por tipo:</p>
+      <p class="lamina__caption">Resultante (PVS) média por mês e por tipo:</p>
       <div class="lamina__chart"><canvas id="lamina-vib"></canvas></div>
       <p class="lamina__note" id="vib-note"></p>
       <p class="lamina__foot">STRICTLY PRIVATE AND CONFIDENTIAL</p>
