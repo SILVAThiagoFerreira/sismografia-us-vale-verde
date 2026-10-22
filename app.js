@@ -316,6 +316,12 @@ function populateFilters() {
   const currentYear = String(new Date().getFullYear());
   ySel.value = years.some((year) => String(year) === currentYear) ? currentYear : "";
 
+  // Ano do Gantt: usado quando o filtro ANO está vazio; começa no ano mais recente dos dados.
+  const gSel = document.getElementById("gantt-year");
+  gSel.innerHTML = years.slice().reverse().map((y) => `<option value="${y}">${y}</option>`).join("");
+  gSel.value = String(years[years.length - 1]);
+  gSel.onchange = render;
+
   [ySel, mSel, pSel, fSel, tSel, cSel].forEach((s) => (s.onchange = render));
   // Ao escolher um período, o ano sai do filtro para o período valer sozinho (evita tela vazia).
   [document.getElementById("filter-from"), document.getElementById("filter-to")].forEach((d) => {
@@ -515,6 +521,7 @@ function render() {
   renderByPoint(data);
   renderFreqBands(data, crit);
   renderMonthly(data, crit);
+  renderGantt(data, crit);
   renderScaled(data);
   renderAxes(data);
   renderTable(data);
@@ -820,6 +827,160 @@ function renderMonthly(data, crit) {
 }
 
 
+
+/* ===================== Gantt de desmontes (dias por ponto e mês) ===================== */
+/* Uma linha por ponto; cada dia com desmonte registrado vira uma barra de 1 dia.
+   Eixo X = dia do ano, com divisórias e rótulos por mês. Vermelho = PPV do dia acima do critério.
+   Abaixo: totais de dias com desmonte por mês e por ponto. */
+const GANTT_ROW_H = 28;
+const DAY_MS = 864e5;
+
+/* Ano do Gantt: o filtro ANO quando preenchido; senão o seletor próprio (padrão: ano mais recente). */
+function ganttYear() {
+  const g = document.getElementById("filter-year").value;
+  if (g) return +g;
+  const s = document.getElementById("gantt-year").value;
+  return s ? +s : Math.max(...RECORDS.map((r) => r.ano));
+}
+
+/* Divisórias e rótulos de mês, desenhados atrás das barras (opções em plugins.ganttMonths). */
+const ganttMonths = {
+  id: "ganttMonths",
+  beforeDatasetsDraw(chart) {
+    const cfg = chart.options.plugins.ganttMonths;
+    if (!cfg) return;
+    const { ctx, chartArea: a, scales: { x } } = chart;
+    const px = (v) => x.getPixelForValue(v);
+    ctx.save();
+    ctx.font = `600 11px ${Chart.defaults.font.family}`;
+    ctx.fillStyle = "#404040";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    cfg.starts.forEach((s, i) => {
+      const end = i < 11 ? cfg.starts[i + 1] : cfg.nDays;
+      ctx.fillText(meses[i], (px(s) + px(end)) / 2, a.top - 8);
+      if (i > 0) {
+        ctx.strokeStyle = "#C4C7CC";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(px(s)) + 0.5, a.top - 20);
+        ctx.lineTo(Math.round(px(s)) + 0.5, a.bottom);
+        ctx.stroke();
+      }
+    });
+    ctx.restore();
+  },
+};
+
+function renderGantt(data, crit) {
+  const ano = ganttYear();
+  document.getElementById("gantt-year").disabled = !!document.getElementById("filter-year").value;
+  const sub = document.getElementById("gantt-sub");
+  const body = document.getElementById("gantt-body");
+  const totals = document.getElementById("gantt-totals");
+
+  const yearStart = Date.UTC(ano, 0, 1);
+  const nDays = Math.round((Date.UTC(ano + 1, 0, 1) - yearStart) / DAY_MS);
+  const dayOf = (d) => Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - yearStart) / DAY_MS);
+
+  // ponto -> dia -> agregado do dia (todos os registros daquele ponto naquela data)
+  const byPoint = {};
+  data.filter((r) => r.ano === ano).forEach((r) => {
+    const pts = (byPoint[r.ponto] = byPoint[r.ponto] || {});
+    const k = dayOf(r.date);
+    const d = (pts[k] = pts[k] || { k, date: r.date, n: 0, fogos: [], ppvMax: null, airMax: null, tipos: new Set(), over: false });
+    d.n++;
+    if (r.fogo && !d.fogos.includes(r.fogo)) d.fogos.push(r.fogo);
+    if (r.ppv != null) d.ppvMax = d.ppvMax == null ? r.ppv : Math.max(d.ppvMax, r.ppv);
+    if (r.air != null) d.airMax = d.airMax == null ? r.air : Math.max(d.airMax, r.air);
+    d.tipos.add(r.tipo);
+    if (r.ppv != null && r.domFreq != null && r.ppv > limitAt(crit, r.domFreq)) d.over = true;
+  });
+
+  const rows = Object.keys(byPoint)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"))
+    .map((ponto) => {
+      const days = Object.values(byPoint[ponto]).sort((a, b) => a.k - b.k);
+      const months = Array(12).fill(0);
+      days.forEach((d) => { months[d.date.getMonth()]++; });
+      return { ponto, days, months };
+    });
+
+  if (!rows.length) {
+    sub.textContent = `${ano}: nenhum desmonte registrado com os filtros atuais.`;
+    totals.innerHTML = "";
+    return buildChart("chart-gantt", null, emptyScatter());
+  }
+
+  const totalDays = rows.reduce((s, r) => s + r.days.length, 0);
+  sub.textContent = `${ano} · ${fmtInt(totalDays)} dias com desmonte em ${rows.length} ponto(s) · ` +
+    `vermelho: PPV do dia acima de ${CRITERIA[crit].short}`;
+  body.style.height = rows.length * GANTT_ROW_H + 44 + "px";
+
+  // Uma série por "k-ésimo dia" de cada ponto: cada série tem no máximo uma barra por linha,
+  // e todas as séries se sobrepõem na mesma linha (grouped: false).
+  const maxDays = Math.max(...rows.map((r) => r.days.length));
+  const datasets = [];
+  for (let j = 0; j < maxDays; j++) {
+    const info = rows.map((row) => (row.days[j] ? { ...row.days[j], ponto: row.ponto } : null));
+    datasets.push({
+      label: `Dia de desmonte ${j + 1}`,
+      data: info.map((d) => (d ? [d.k, d.k + 1] : null)),
+      backgroundColor: info.map((d) => (d && d.over ? C.neutral : C.ink)),
+      borderWidth: 0, barThickness: 14, grouped: false, info,
+    });
+  }
+
+  buildChart("chart-gantt", "bar", {
+    type: "bar",
+    data: { labels: rows.map((r) => `${r.ponto} (${r.days.length})`), datasets },
+    options: {
+      indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: true, axis: "xy" },
+      layout: { padding: { top: 26, right: 8 } },
+      plugins: {
+        legend: { display: false },
+        ganttMonths: { starts: meses.map((_, i) => Math.round((Date.UTC(ano, i, 1) - yearStart) / DAY_MS)), nDays },
+        tooltip: tooltipCfg({
+          filter: (it) => !!it.dataset.info[it.dataIndex],
+          callbacks: {
+            title: (items) => {
+              const d = items[0].dataset.info[items[0].dataIndex];
+              return `${d.ponto} · ${fmtDate(d.date)}`;
+            },
+            label: (it) => {
+              const d = it.dataset.info[it.dataIndex];
+              const fogos = d.fogos.length ? ` (fogo ${d.fogos.slice(0, 3).join(", ")}${d.fogos.length > 3 ? "…" : ""})` : "";
+              const lines = [`Registros: ${fmtInt(d.n)}${fogos}`];
+              if (d.ppvMax != null) lines.push(`Vibração (PPV máx.): ${fmtNum(d.ppvMax, 2)} mm/s`);
+              if (d.airMax != null) lines.push(`Pressão acústica máx.: ${fmtNum(d.airMax, 1)} dBL`);
+              lines.push(`Tipo: ${[...d.tipos].join(", ")}`);
+              if (d.over) lines.push(`✗ acima de ${CRITERIA[crit].short}`);
+              return lines;
+            },
+          },
+        }),
+      },
+      scales: {
+        x: { type: "linear", min: 0, max: nDays, offset: false,
+          grid: { display: false }, ticks: { display: false }, border: { color: C.axis } },
+        y: { ticks: { color: C.text, font: { size: 11 }, autoSkip: false },
+          grid: { color: "#E5E5E5" }, border: { display: false } },
+      },
+    },
+    plugins: [ganttMonths],
+  });
+
+  // Totalizador: dias com desmonte por mês (colunas) e por ponto (linhas)
+  const colSum = Array(12).fill(0);
+  rows.forEach((r) => r.months.forEach((v, i) => { colSum[i] += v; }));
+  const cell = (v) => `<td class="num${v ? "" : " is-zero"}">${v ? fmtInt(v) : "—"}</td>`;
+  totals.innerHTML =
+    `<thead><tr><th>Ponto</th>${meses.map((m) => `<th class="num">${m}</th>`).join("")}<th class="num">Total</th></tr></thead>` +
+    `<tbody>${rows.map((r) => `<tr><td>${escapeText(r.ponto)}</td>${r.months.map(cell).join("")}` +
+      `<td class="num"><strong>${fmtInt(r.days.length)}</strong></td></tr>`).join("")}</tbody>` +
+    `<tfoot><tr><td>Total</td>${colSum.map(cell).join("")}<td class="num">${fmtInt(totalDays)}</td></tr></tfoot>`;
+}
 
 /* ===================== Cores por categoria de evento ===================== */
 const TIPO_COLOR = {

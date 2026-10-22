@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=16">
+  <link rel="stylesheet" href="./styles.css?v=17">
 </head>
 <body>
   <header class="topbar">
@@ -170,6 +170,26 @@
       </div>
 
       <div class="chart-block">
+        <div class="chart-block__head gantt-head">
+          <div>
+            <h2>Dias de desmonte por ponto e mês (Gantt)</h2>
+            <p id="gantt-sub">Cada marca é um dia com desmonte no ponto · vermelho: PPV do dia acima do critério selecionado</p>
+          </div>
+          <label class="filter gantt-year">
+            <span>ANO DO GANTT</span>
+            <select id="gantt-year" title="Usado quando o filtro ANO está vazio"></select>
+          </label>
+        </div>
+        <div class="gantt-scroll">
+          <div class="chart-block__body gantt-canvas" id="gantt-body"><canvas id="chart-gantt"></canvas></div>
+        </div>
+        <div class="gantt-scroll">
+          <table class="data-table gantt-totals" id="gantt-totals"></table>
+        </div>
+        <p class="gantt-note">Totais = dias com desmonte por ponto. Um dia com desmonte em dois pontos conta duas vezes.</p>
+      </div>
+
+      <div class="chart-block">
         <div class="chart-block__head">
           <h2>Distância escalonada × PPV</h2>
           <p>SD = R / √Q (m/√kg) · linha de regressão v = k·SD<sup>−β</sup> ajustada aos dados</p>
@@ -287,6 +307,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-  <script src="./app.js?v=20"></script>
+  <script src="./app.js?v=21"></script>
 </body>
 </html>

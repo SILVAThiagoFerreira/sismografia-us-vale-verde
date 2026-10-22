@@ -668,6 +668,23 @@ body {
 .type-card__meta { color: var(--enaex-text); }
 .type-empty { border: 0; padding: 12px 0; }
 
+/* ---------- Gantt de desmontes (dias por ponto e mês) ---------- */
+/* Rolagem horizontal só dentro do gráfico e da tabela de totais (celular) */
+.gantt-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.gantt-year { width: 150px; }
+.gantt-year select { width: 100%; height: 32px; }
+.gantt-year select:disabled { opacity: 0.55; cursor: not-allowed; }
+.gantt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.gantt-canvas { min-width: 980px; }
+.gantt-totals { min-width: 980px; margin-top: 16px; }
+.gantt-totals th,
+.gantt-totals td { padding: 5px 8px; font-size: 11px; }
+.gantt-totals th { cursor: default; }
+.gantt-totals tbody td:first-child { font-weight: 600; color: var(--enaex-slate); }
+.gantt-totals tfoot td { font-weight: 700; color: var(--enaex-slate); border-top: 1px solid #C4C7CC; border-bottom: 0; }
+.gantt-totals td.is-zero { color: var(--faint); }
+.gantt-note { margin: 8px 0 0; font-size: 10.5px; color: var(--enaex-text); }
+
 /* Tabela de consulta: sem cabeçalho escuro pesado */
 .table-wrap { border: 1px solid var(--enaex-rule); }
 .data-table th {
