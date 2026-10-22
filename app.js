@@ -829,11 +829,11 @@ function renderMonthly(data, crit) {
 
 
 /* ===================== Gantt de desmontes (dias por ponto e mês) ===================== */
-/* Uma linha por ponto; cada dia com desmonte registrado vira uma barra de 1 dia.
-   Eixo X = dia do ano, com divisórias e rótulos por mês. Vermelho = PPV do dia acima do critério.
-   Abaixo: totais de dias com desmonte por mês e por ponto. */
-const GANTT_ROW_H = 28;
+/* Um quadradinho arredondado por dia com desmonte (largura = 1 dia no eixo do ano).
+   Vermelho = PPV do dia acima do critério. Montado em HTML/CSS (não em canvas): zebra por ponto,
+   separadores de mês, badge com a contagem, barra de total à direita e tooltip próprio. */
 const DAY_MS = 864e5;
+const GANTT_TIP = []; // HTML do tooltip de cada dia (índice = data-tip da célula)
 
 /* Ano do Gantt: o filtro ANO quando preenchido; senão o seletor próprio (padrão: ano mais recente). */
 function ganttYear() {
@@ -843,41 +843,49 @@ function ganttYear() {
   return s ? +s : Math.max(...RECORDS.map((r) => r.ano));
 }
 
-/* Divisórias e rótulos de mês, desenhados atrás das barras (opções em plugins.ganttMonths). */
-const ganttMonths = {
-  id: "ganttMonths",
-  beforeDatasetsDraw(chart) {
-    const cfg = chart.options.plugins.ganttMonths;
-    if (!cfg) return;
-    const { ctx, chartArea: a, scales: { x } } = chart;
-    const px = (v) => x.getPixelForValue(v);
-    ctx.save();
-    ctx.font = `600 11px ${Chart.defaults.font.family}`;
-    ctx.fillStyle = "#404040";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    cfg.starts.forEach((s, i) => {
-      const end = i < 11 ? cfg.starts[i + 1] : cfg.nDays;
-      ctx.fillText(meses[i], (px(s) + px(end)) / 2, a.top - 8);
-      if (i > 0) {
-        ctx.strokeStyle = "#C4C7CC";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(Math.round(px(s)) + 0.5, a.top - 20);
-        ctx.lineTo(Math.round(px(s)) + 0.5, a.bottom);
-        ctx.stroke();
-      }
-    });
-    ctx.restore();
-  },
-};
+function ganttTipHtml(ponto, d, crit) {
+  const fogos = d.fogos.length ? ` (fogo ${d.fogos.slice(0, 3).join(", ")}${d.fogos.length > 3 ? "…" : ""})` : "";
+  const lines = [`Registros: ${fmtInt(d.n)}${fogos}`];
+  if (d.ppvMax != null) lines.push(`Vibração (PPV máx.): ${fmtNum(d.ppvMax, 2)} mm/s`);
+  if (d.airMax != null) lines.push(`Pressão acústica máx.: ${fmtNum(d.airMax, 1)} dBL`);
+  lines.push(`Tipo: ${[...d.tipos].join(", ")}`);
+  if (d.over) lines.push(`✗ acima de ${CRITERIA[crit].short}`);
+  return `<strong>${escapeText(ponto)} · ${fmtDate(d.date)}</strong>` +
+    lines.map((l) => `<div>${escapeText(l)}</div>`).join("");
+}
+
+/* Tooltip por delegação no quadro (fixo na tela, para não ser cortado pela rolagem). */
+function bindGanttTip(board) {
+  if (board.dataset.bound) return;
+  board.dataset.bound = "1";
+  const tip = () => board.querySelector(".gt-tip");
+  const hide = () => tip() && tip().classList.remove("is-on");
+  board.addEventListener("mouseover", (e) => {
+    const cell = e.target.closest(".gt-cell");
+    if (!cell) return hide();
+    tip().innerHTML = GANTT_TIP[+cell.dataset.tip];
+    tip().classList.add("is-on");
+  });
+  board.addEventListener("mousemove", (e) => {
+    const t = tip();
+    if (!t || !t.classList.contains("is-on")) return;
+    const pad = 14;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if (x + t.offsetWidth > window.innerWidth - 8) x = e.clientX - pad - t.offsetWidth;
+    if (y + t.offsetHeight > window.innerHeight - 8) y = e.clientY - pad - t.offsetHeight;
+    t.style.left = Math.max(8, x) + "px";
+    t.style.top = Math.max(8, y) + "px";
+  });
+  board.addEventListener("mouseleave", hide);
+}
 
 function renderGantt(data, crit) {
   const ano = ganttYear();
   document.getElementById("gantt-year").disabled = !!document.getElementById("filter-year").value;
   const sub = document.getElementById("gantt-sub");
-  const body = document.getElementById("gantt-body");
+  const board = document.getElementById("gantt-board");
   const totals = document.getElementById("gantt-totals");
+  bindGanttTip(board);
 
   const yearStart = Date.UTC(ano, 0, 1);
   const nDays = Math.round((Date.UTC(ano + 1, 0, 1) - yearStart) / DAY_MS);
@@ -908,68 +916,57 @@ function renderGantt(data, crit) {
 
   if (!rows.length) {
     sub.textContent = `${ano}: nenhum desmonte registrado com os filtros atuais.`;
+    board.innerHTML = `<p class="gt-msg">Nenhum desmonte registrado com os filtros atuais.</p>`;
     totals.innerHTML = "";
-    return buildChart("chart-gantt", null, emptyScatter());
+    return;
   }
 
   const totalDays = rows.reduce((s, r) => s + r.days.length, 0);
   sub.textContent = `${ano} · ${fmtInt(totalDays)} dias com desmonte em ${rows.length} ponto(s) · ` +
     `vermelho: PPV do dia acima de ${CRITERIA[crit].short}`;
-  body.style.height = rows.length * GANTT_ROW_H + 44 + "px";
 
-  // Uma série por "k-ésimo dia" de cada ponto: cada série tem no máximo uma barra por linha,
-  // e todas as séries se sobrepõem na mesma linha (grouped: false).
-  const maxDays = Math.max(...rows.map((r) => r.days.length));
-  const datasets = [];
-  for (let j = 0; j < maxDays; j++) {
-    const info = rows.map((row) => (row.days[j] ? { ...row.days[j], ponto: row.ponto } : null));
-    datasets.push({
-      label: `Dia de desmonte ${j + 1}`,
-      data: info.map((d) => (d ? [d.k, d.k + 1] : null)),
-      backgroundColor: info.map((d) => (d && d.over ? C.neutral : C.ink)),
-      borderWidth: 0, barThickness: 14, grouped: false, info,
-    });
-  }
+  // Geometria: posições em % do ano (cada dia = 1/nDays da trilha)
+  const starts = meses.map((_, i) => Math.round((Date.UTC(ano, i, 1) - yearStart) / DAY_MS));
+  const endOf = (i) => (i < 11 ? starts[i + 1] : nDays);
+  const pct = (k) => (k / nDays * 100).toFixed(4) + "%";
+  const spanW = (i) => ((endOf(i) - starts[i]) / nDays * 100).toFixed(4) + "%";
+  const cellW = `calc(${(100 / nDays).toFixed(4)}% - 1px)`;
+  const monthCount = Array(12).fill(0);
+  rows.forEach((r) => r.months.forEach((v, i) => { monthCount[i] += v; }));
+  const maxTotal = Math.max(...rows.map((r) => r.days.length));
 
-  buildChart("chart-gantt", "bar", {
-    type: "bar",
-    data: { labels: rows.map((r) => `${r.ponto} (${r.days.length})`), datasets },
-    options: {
-      indexAxis: "y", responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "nearest", intersect: true, axis: "xy" },
-      layout: { padding: { top: 26, right: 8 } },
-      plugins: {
-        legend: { display: false },
-        ganttMonths: { starts: meses.map((_, i) => Math.round((Date.UTC(ano, i, 1) - yearStart) / DAY_MS)), nDays },
-        tooltip: tooltipCfg({
-          filter: (it) => !!it.dataset.info[it.dataIndex],
-          callbacks: {
-            title: (items) => {
-              const d = items[0].dataset.info[items[0].dataIndex];
-              return `${d.ponto} · ${fmtDate(d.date)}`;
-            },
-            label: (it) => {
-              const d = it.dataset.info[it.dataIndex];
-              const fogos = d.fogos.length ? ` (fogo ${d.fogos.slice(0, 3).join(", ")}${d.fogos.length > 3 ? "…" : ""})` : "";
-              const lines = [`Registros: ${fmtInt(d.n)}${fogos}`];
-              if (d.ppvMax != null) lines.push(`Vibração (PPV máx.): ${fmtNum(d.ppvMax, 2)} mm/s`);
-              if (d.airMax != null) lines.push(`Pressão acústica máx.: ${fmtNum(d.airMax, 1)} dBL`);
-              lines.push(`Tipo: ${[...d.tipos].join(", ")}`);
-              if (d.over) lines.push(`✗ acima de ${CRITERIA[crit].short}`);
-              return lines;
-            },
-          },
-        }),
-      },
-      scales: {
-        x: { type: "linear", min: 0, max: nDays, offset: false,
-          grid: { display: false }, ticks: { display: false }, border: { color: C.axis } },
-        y: { ticks: { color: C.text, font: { size: 11 }, autoSkip: false },
-          grid: { color: "#E5E5E5" }, border: { display: false } },
-      },
-    },
-    plugins: [ganttMonths],
-  });
+  const seps = starts.slice(1).map((s) => `<i class="gt-sep" style="left:${pct(s)}"></i>`).join("");
+  const offs = meses.map((_, i) => (monthCount[i] ? "" :
+    `<i class="gt-off" style="left:${pct(starts[i])};width:${spanW(i)}"></i>`)).join("");
+
+  GANTT_TIP.length = 0;
+  const head = `<div class="gt-row gt-head"><div class="gt-name">Ponto</div>` +
+    `<div class="gt-track">${meses.map((m, i) => `<span class="gt-mes${monthCount[i] ? "" : " is-off"}" ` +
+      `style="left:${pct(starts[i])};width:${spanW(i)}">${m}</span>`).join("")}</div>` +
+    `<div class="gt-total">Total</div></div>`;
+
+  const body = rows.map((row, ri) => {
+    const cells = row.days.map((d) => {
+      GANTT_TIP.push(ganttTipHtml(row.ponto, d, crit));
+      return `<b class="gt-cell${d.over ? " is-over" : ""}" data-tip="${GANTT_TIP.length - 1}" ` +
+        `style="left:${pct(d.k)};width:${cellW}"></b>`;
+    }).join("");
+    const n = row.days.length;
+    return `<div class="gt-row${ri % 2 ? " is-alt" : ""}">` +
+      `<div class="gt-name"><span class="gt-label">${escapeText(row.ponto)}</span>` +
+      `<span class="gt-badge">${fmtInt(n)}</span></div>` +
+      `<div class="gt-track">${seps}${offs}${cells}</div>` +
+      `<div class="gt-total"><span class="gt-bar"><i style="width:${(n / maxTotal * 100).toFixed(1)}%"></i></span>` +
+      `<span class="gt-num">${fmtInt(n)}</span></div></div>`;
+  }).join("");
+
+  board.innerHTML =
+    `<div class="gt-legend">` +
+      `<span><i class="gt-sw gt-sw--n"></i>Desmonte</span>` +
+      `<span><i class="gt-sw gt-sw--o"></i>PPV acima de ${escapeText(CRITERIA[crit].short)}</span>` +
+    `</div>` +
+    `<div class="gt-grid">${head}${body}</div>` +
+    `<div class="gt-tip" role="tooltip"></div>`;
 
   // Totalizador: dias com desmonte por mês (colunas) e por ponto (linhas)
   const colSum = Array(12).fill(0);
