@@ -1793,27 +1793,66 @@ function setStatus(kind, text) {
 }
 function nowBR() { return new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); }
 
-/* Barra lateral de filtros: expandida por padrão em telas ≥1200px; no celular (<768px)
-   vira gaveta sobreposta acionada pelo botão de funil da topbar. */
+/* Barra lateral de filtros: faixa de ícones sempre fechada no carregamento.
+   Desktop: o ícone de funil abre um popover ao lado da faixa (não empurra o conteúdo).
+   Celular (<768px): gaveta sobreposta acionada pelo botão de funil da topbar.
+   A barra começa abaixo da topbar enquanto ela estiver visível e sobe até o topo ao rolar. */
 function initSidebar() {
   const sb = document.getElementById("sidebar");
+  const panel = document.getElementById("sidebar-panel");
   const scrim = document.getElementById("sidebar-scrim");
   const toggle = document.getElementById("sb-toggle");
-  sb.classList.toggle("is-collapsed", !window.matchMedia("(min-width: 1200px)").matches);
-  const syncToggle = () => {
-    const open = !sb.classList.contains("is-collapsed");
+  const topbar = document.querySelector(".topbar");
+  let popOpen = false;
+
+  const syncSidebarTop = () => {
+    const top = Math.max(0, Math.round(topbar.getBoundingClientRect().bottom));
+    document.documentElement.style.setProperty("--sb-top", top + "px");
+    if (popOpen) positionPopover();
+  };
+  const positionPopover = () => {
+    const r = toggle.getBoundingClientRect();
+    const cy = r.top + r.height / 2;
+    const sbTop = sb.getBoundingClientRect().top;
+    const top = Math.min(Math.max(cy - 28, sbTop + 8), window.innerHeight - 120);
+    panel.style.top = top + "px";
+    panel.style.maxHeight = Math.max(160, window.innerHeight - top - 12) + "px";
+    sb.style.setProperty("--arrow-pos", (cy - sbTop) + "px");
+  };
+  const setPopover = (open) => {
+    popOpen = open;
+    if (open) positionPopover();
+    sb.classList.toggle("is-pop-open", open);
+    panel.classList.toggle("is-open", open);
     toggle.classList.toggle("is-active", open);
     toggle.setAttribute("aria-expanded", String(open));
   };
-  syncToggle();
-  toggle.onclick = () => { sb.classList.toggle("is-collapsed"); syncToggle(); };
   const setDrawer = (open) => {
     sb.classList.toggle("is-drawer-open", open);
     scrim.classList.toggle("is-visible", open);
   };
+
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { ticking = false; syncSidebarTop(); });
+  }, { passive: true });
+  window.addEventListener("resize", syncSidebarTop);
+  syncSidebarTop();
+
+  toggle.onclick = () => setPopover(!popOpen);
+  document.getElementById("sidebar-close").onclick = () => { setPopover(false); setDrawer(false); };
+  document.addEventListener("mousedown", (e) => {
+    if (popOpen && !panel.contains(e.target) && !toggle.contains(e.target)) setPopover(false);
+  });
   document.getElementById("topbar-filter").onclick = () => setDrawer(!sb.classList.contains("is-drawer-open"));
   scrim.onclick = () => setDrawer(false);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setDrawer(false); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    setPopover(false);
+    setDrawer(false);
+  });
   document.getElementById("sb-clear").onclick = () => document.getElementById("filter-reset").click();
   document.getElementById("sb-export").onclick = () => document.getElementById("lamina-export").click();
   document.getElementById("sb-reload").onclick = () => loadSheet().catch((e) => console.error(e));

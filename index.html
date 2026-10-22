@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=18">
+  <link rel="stylesheet" href="./styles.css?v=20">
 </head>
 <body>
   <header class="topbar">
@@ -17,18 +17,21 @@
     <button id="topbar-filter" class="topbar__filter" type="button" aria-label="Abrir filtros" aria-controls="sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
   </header>
 
-  <aside class="sidebar is-collapsed" id="sidebar" aria-label="Filtros e ações">
+  <aside class="sidebar" id="sidebar" aria-label="Filtros e ações">
     <nav class="sidebar__rail" aria-label="Ações">
-      <button id="sb-toggle" class="rail-btn" type="button" title="Filtros" aria-label="Mostrar ou ocultar filtros" aria-controls="sidebar-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
-      <button id="sb-clear" class="rail-btn" type="button" title="Limpar filtros" aria-label="Limpar filtros">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.013 3H2l8 9.46V19l4 2v-8.54l.9-1.055"/><path d="m22 3-5 5"/><path d="m17 3 5 5"/></svg></button>
-      <button id="sb-export" class="rail-btn" type="button" title="Exportar lâminas para PowerPoint" aria-label="Exportar lâminas para PowerPoint">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg></button>
-      <button id="sb-reload" class="rail-btn" type="button" title="Recarregar dados da planilha" aria-label="Recarregar dados da planilha">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+      <button id="sb-toggle" class="rail-btn" type="button" data-tip="Filtros" aria-label="Mostrar ou ocultar filtros" aria-controls="sidebar-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg><span class="rail-tip" aria-hidden="true">Filtros</span></button>
+      <button id="sb-clear" class="rail-btn" type="button" data-tip="Limpar filtros" aria-label="Limpar filtros">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.013 3H2l8 9.46V19l4 2v-8.54l.9-1.055"/><path d="m22 3-5 5"/><path d="m17 3 5 5"/></svg><span class="rail-tip" aria-hidden="true">Limpar filtros</span></button>
+      <button id="sb-export" class="rail-btn" type="button" data-tip="Exportar lâminas (PowerPoint)" aria-label="Exportar lâminas para PowerPoint">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg><span class="rail-tip" aria-hidden="true">Exportar lâminas (PowerPoint)</span></button>
+      <button id="sb-reload" class="rail-btn" type="button" data-tip="Atualizar dados" aria-label="Recarregar dados da planilha">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg><span class="rail-tip" aria-hidden="true">Atualizar dados</span></button>
     </nav>
     <div class="sidebar__panel" id="sidebar-panel">
-      <h2 class="sidebar__head">Filtros</h2>
+      <div class="sidebar__headrow">
+        <h2 class="sidebar__head">Filtros</h2>
+        <button id="sidebar-close" class="sidebar__close" type="button" aria-label="Fechar filtros"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
       <div class="filters">
         <label class="filter">
           <span>ANO</span>
@@ -327,6 +330,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-  <script src="./app.js?v=22"></script>
+  <script src="./app.js?v=24"></script>
 </body>
 </html>
