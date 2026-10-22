@@ -1593,6 +1593,21 @@ async function loadLogoForPpt(path) {
 }
 
 /* Ponto médio de cada segmento empilhado (onde a tendência tracejada passa), como no gráfico da tela. */
+/* Série de cada tipo como porcentagem do total do mês (colunas somam 100%). */
+function laminaPercent(series, names) {
+  const out = {};
+  names.forEach((n) => { out[n] = []; });
+  const len = series[names[0]].length;
+  for (let i = 0; i < len; i++) {
+    const total = names.reduce((s, n) => s + (series[n][i] ?? 0), 0);
+    names.forEach((n) => {
+      const v = series[n][i];
+      out[n].push(v == null || !total ? null : (v / total) * 100);
+    });
+  }
+  return out;
+}
+
 function laminaTrendValues(series, names, name) {
   return series[name].map((v, i) => {
     if (v == null) return null;
@@ -1638,10 +1653,12 @@ function addLaminaSlide(pptx, lamina, logos) {
   slide.addShape(pptx.shapes.LINE, { x: PPT_M, y: 2.02, w: PPT_CW, h: 0,
     line: { color: "E5E5E5", width: 0.75 } });
 
-  const bars = names.map((n) => ({ name: n, labels: meses, values: series[n] }));
+  // Mesmo critério da tela: cada coluna mensal soma 100% (rótulos em %).
+  const pct = laminaPercent(series, names);
+  const bars = names.map((n) => ({ name: n, labels: meses, values: pct[n] }));
   const trends = names.map((n) => ({ name: PPT_TREND + n, labels: meses,
-    values: laminaTrendValues(series, names, n) }));
-  const fmt = L.decimals === 1 ? "0.0;-0.0;;" : "0.00;-0.00;;";
+    values: laminaTrendValues(pct, names, n) }));
+  const fmt = '0"%";-0"%";;';
   slide.addChart([
     { type: pptx.charts.BAR, data: bars },
     { type: pptx.charts.LINE, data: trends },
@@ -1651,7 +1668,7 @@ function addLaminaSlide(pptx, lamina, logos) {
     chartColors: names.map((n) => LAMINA_STYLE[n].color.slice(1)),
     showValue: true, dataLabelPosition: "ctr", dataLabelFormatCode: fmt,
     dataLabelFontSize: 9, dataLabelFontBold: true, dataLabelColor: "404040", dataLabelFontFace: PPT_FONT,
-    valAxisHidden: true, valAxisLineShow: false, valAxisMinVal: 0,
+    valAxisHidden: true, valAxisLineShow: false, valAxisMinVal: 0, valAxisMaxVal: 100,
     valGridLine: { style: "none" }, catGridLine: { style: "none" },
     catAxisLineShow: true, catAxisLineColor: "C4C7CB",
     catAxisLabelFontSize: 10, catAxisLabelColor: "404040", catAxisLabelFontFace: PPT_FONT,
