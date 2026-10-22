@@ -7,15 +7,79 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=17">
+  <link rel="stylesheet" href="./styles.css?v=18">
 </head>
 <body>
   <header class="topbar">
     <img class="topbar__logo" src="./assets/enaex-logo-white.png" alt="ENAEX">
     <span class="topbar__title">Sismografia</span>
     <span class="topbar__unit">US VALE VERDE</span>
+    <button id="topbar-filter" class="topbar__filter" type="button" aria-label="Abrir filtros" aria-controls="sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
   </header>
 
+  <aside class="sidebar is-collapsed" id="sidebar" aria-label="Filtros e ações">
+    <nav class="sidebar__rail" aria-label="Ações">
+      <button id="sb-toggle" class="rail-btn" type="button" title="Filtros" aria-label="Mostrar ou ocultar filtros" aria-controls="sidebar-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+      <button id="sb-clear" class="rail-btn" type="button" title="Limpar filtros" aria-label="Limpar filtros">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.013 3H2l8 9.46V19l4 2v-8.54l.9-1.055"/><path d="m22 3-5 5"/><path d="m17 3 5 5"/></svg></button>
+      <button id="sb-export" class="rail-btn" type="button" title="Exportar lâminas para PowerPoint" aria-label="Exportar lâminas para PowerPoint">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg></button>
+      <button id="sb-reload" class="rail-btn" type="button" title="Recarregar dados da planilha" aria-label="Recarregar dados da planilha">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+    </nav>
+    <div class="sidebar__panel" id="sidebar-panel">
+      <h2 class="sidebar__head">Filtros</h2>
+      <div class="filters">
+        <label class="filter">
+          <span>ANO</span>
+          <select id="filter-year"></select>
+        </label>
+        <label class="filter">
+          <span>MÊS</span>
+          <select id="filter-month"></select>
+        </label>
+        <label class="filter">
+          <span>PONTO</span>
+          <select id="filter-point"></select>
+        </label>
+        <label class="filter">
+          <span>TIPO DE EVENTO</span>
+          <select id="filter-type"></select>
+        </label>
+        <label class="filter">
+          <span>FOGO (ID DESMONTE)</span>
+          <select id="filter-fire"></select>
+        </label>
+        <label class="filter">
+          <span>DATA INICIAL</span>
+          <input id="filter-from" type="date" title="Primeiro dia do período">
+        </label>
+        <label class="filter">
+          <span>DATA FINAL</span>
+          <input id="filter-to" type="date" title="Último dia do período">
+        </label>
+        <label class="filter filter--search filter--wide">
+          <span>PESQUISAR</span>
+          <input id="filter-search" type="search" placeholder="Fogo, ponto, data…" autocomplete="off">
+          <div id="search-suggestions" class="search-suggestions" hidden role="listbox" aria-label="Sugestões de busca"></div>
+        </label>
+        <label class="filter filter--wide">
+          <span>Critério NBR 9653</span>
+          <select id="filter-criterion" title="Critério normativo para o limite de velocidade">
+            <option value="nbr">NBR 9653:2018 (limite legal)</option>
+            <option value="din2">DIN 4150-3 L2 (residencial)</option>
+            <option value="din3">DIN 4150-3 L3 (sensível)</option>
+            <option value="usbm">USBM RI 8507 (referência)</option>
+          </select>
+        </label>
+        <button id="filter-reset" type="button" class="filter-reset">Limpar filtros</button>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-scrim" id="sidebar-scrim"></div>
+
+
+  <div class="app">
   <main class="page">
     <section class="page-head">
       <div class="page-head__title">
@@ -25,51 +89,6 @@
       <button id="base-export" type="button" class="page-head__action">Exportar base de dados</button>
     </section>
 
-    <div class="filters">
-      <label class="filter">
-        <span>ANO</span>
-        <select id="filter-year"></select>
-      </label>
-      <label class="filter">
-        <span>MÊS</span>
-        <select id="filter-month"></select>
-      </label>
-      <label class="filter">
-        <span>PONTO</span>
-        <select id="filter-point"></select>
-      </label>
-      <label class="filter">
-        <span>TIPO DE EVENTO</span>
-        <select id="filter-type"></select>
-      </label>
-      <label class="filter">
-        <span>FOGO (ID DESMONTE)</span>
-        <select id="filter-fire"></select>
-      </label>
-      <label class="filter">
-        <span>DATA INICIAL</span>
-        <input id="filter-from" type="date" title="Primeiro dia do período">
-      </label>
-      <label class="filter">
-        <span>DATA FINAL</span>
-        <input id="filter-to" type="date" title="Último dia do período">
-      </label>
-      <label class="filter filter--search filter--wide">
-        <span>PESQUISAR</span>
-        <input id="filter-search" type="search" placeholder="Fogo, ponto, data…" autocomplete="off">
-        <div id="search-suggestions" class="search-suggestions" hidden role="listbox" aria-label="Sugestões de busca"></div>
-      </label>
-      <label class="filter filter--wide">
-        <span>Critério NBR 9653</span>
-        <select id="filter-criterion" title="Critério normativo para o limite de velocidade">
-          <option value="nbr">NBR 9653:2018 (limite legal)</option>
-          <option value="din2">DIN 4150-3 L2 (residencial)</option>
-          <option value="din3">DIN 4150-3 L3 (sensível)</option>
-          <option value="usbm">USBM RI 8507 (referência)</option>
-        </select>
-      </label>
-      <button id="filter-reset" type="button" class="filter-reset">Limpar</button>
-    </div>
 
     <p class="status" id="status" aria-live="polite">
       <span class="status__dot" id="status-dot"></span>
@@ -116,7 +135,7 @@
           <h2>Velocidade resultante (PPV) por evento</h2>
           <p id="sub-ppv">Cor = categoria do evento · clique na legenda para filtrar</p>
         </div>
-        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-ppv"></canvas></div>
+        <div class="chart-block__body chart-block__body--std"><canvas id="chart-ppv"></canvas></div>
       </div>
 
       <div class="chart-block">
@@ -124,7 +143,7 @@
           <h2>Sobrepressão acústica (airblast) por evento</h2>
           <p>Linha vermelha: limite NBR 9653 (134 dBL)</p>
         </div>
-        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-air"></canvas></div>
+        <div class="chart-block__body chart-block__body--std"><canvas id="chart-air"></canvas></div>
       </div>
 
       <div class="chart-row">
@@ -133,14 +152,14 @@
             <h2>Evolução do PPV</h2>
             <p>Média mensal da velocidade resultante (mm/s)</p>
           </div>
-          <div class="chart-block__body"><canvas id="chart-trend-ppv"></canvas></div>
+          <div class="chart-block__body chart-block__body--std"><canvas id="chart-trend-ppv"></canvas></div>
         </div>
         <div class="chart-block chart-block--half">
           <div class="chart-block__head">
             <h2>Evolução do airblast</h2>
             <p>Média mensal da sobrepressão (dBL)</p>
           </div>
-          <div class="chart-block__body"><canvas id="chart-trend-air"></canvas></div>
+          <div class="chart-block__body chart-block__body--std"><canvas id="chart-trend-air"></canvas></div>
         </div>
       </div>
 
@@ -150,14 +169,14 @@
             <h2>PPV por ponto de monitoramento</h2>
             <p>Máximo e percentil 95 da velocidade resultante</p>
           </div>
-          <div class="chart-block__body chart-block__body--sq"><canvas id="chart-by-point"></canvas></div>
+          <div class="chart-block__body chart-block__body--std"><canvas id="chart-by-point"></canvas></div>
         </div>
         <div class="chart-block chart-block--half">
           <div class="chart-block__head">
             <h2>Distribuição de frequências</h2>
             <p>Eventos por faixa da NBR 9653 (frequência dominante)</p>
           </div>
-          <div class="chart-block__body chart-block__body--sq"><canvas id="chart-freq"></canvas></div>
+          <div class="chart-block__body chart-block__body--std"><canvas id="chart-freq"></canvas></div>
         </div>
       </div>
 
@@ -166,7 +185,7 @@
           <h2>Eventos por mês × conformidade</h2>
           <p>Quantidade de eventos por mês, separada entre abaixo e acima do critério selecionado</p>
         </div>
-        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-monthly"></canvas></div>
+        <div class="chart-block__body chart-block__body--std"><canvas id="chart-monthly"></canvas></div>
       </div>
 
       <div class="chart-block">
@@ -194,7 +213,7 @@
           <h2>Distância escalonada × PPV</h2>
           <p>SD = R / √Q (m/√kg) · linha de regressão v = k·SD<sup>−β</sup> ajustada aos dados</p>
         </div>
-        <div class="chart-block__body chart-block__body--sq"><canvas id="chart-scaled"></canvas></div>
+        <div class="chart-block__body chart-block__body--std"><canvas id="chart-scaled"></canvas></div>
       </div>
     </section>
 
@@ -295,6 +314,7 @@
     </section>
 
   </main>
+  </div>
 
   <button id="to-top" type="button" class="to-top" aria-label="Voltar ao topo" title="Voltar ao topo">
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2 1.5 7.5l1 1L7 4.5l4.5 4 1-1z" fill="currentColor"/></svg>
@@ -307,6 +327,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-  <script src="./app.js?v=21"></script>
+  <script src="./app.js?v=22"></script>
 </body>
 </html>

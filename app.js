@@ -1407,17 +1407,17 @@ function renderAirByType(data) {
 
 /* ===================== Lâminas mensais por tipo (vibração e pressão acústica) ===================== */
 /* Mesmo formato das lâminas de apresentação: barras empilhadas por mês (Jan–Dez),
-   barra rosa = média da campanha completa, linhas tracejadas ligando cada tipo entre meses. */
+   barra rosa = média da campanha completa. */
 const MESES_LONGO = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const SEP = "Sem separação (campanha completa)";
 const CAMPANHA = "Campanha completa";
 const LAMINA_STYLE = {
-  [SEP]: { color: "#E3B5B9", label: "#404040", trend: "#D08F98" },
-  "Produção": { color: "#B40E16", label: "#ffffff", trend: "#B40E16" },
-  "Ruído da comunidade": { color: "#3C4148", label: "#ffffff", trend: "#3C4148" },
-  "Pré-corte": { color: "#8A9099", label: "#ffffff", trend: "#8A9099" },
-  "Blocos, regularizações, etc": { color: "#C4C7CB", label: "#404040", trend: "#A3A8AF" },
+  [SEP]: { color: "#E3B5B9", label: "#404040" },
+  "Produção": { color: "#B40E16", label: "#ffffff" },
+  "Ruído da comunidade": { color: "#3C4148", label: "#ffffff" },
+  "Pré-corte": { color: "#8A9099", label: "#ffffff" },
+  "Blocos, regularizações, etc": { color: "#C4C7CB", label: "#404040" },
 };
 const LAMINAS = {
   vib: {
@@ -1425,14 +1425,14 @@ const LAMINAS = {
     metric: "ppv", decimals: 2, subLabel: "Resultante (PVS) média (mm/s) por tipo de evento",
     // Blocos e regularizações não geram vibração: ficam de fora da lâmina de PPV.
     types: ["Produção", "Ruído da comunidade", "Pré-corte"],
-    note: (split) => `Linhas tracejadas: tendência de cada tipo. Barra rosa: campanha completa; ${split}. ` +
+    note: (split) => `Barra rosa: campanha completa; ${split}. ` +
       `Blocos e regularizações não geram vibração e foram excluídos.`,
   },
   air: {
     canvas: "lamina-air", subId: "air-sub", noteId: "air-note",
     metric: "air", decimals: 1, subLabel: "Pressão acústica média (dBL) por tipo de evento",
     types: ["Produção", "Ruído da comunidade", "Pré-corte", "Blocos, regularizações, etc"],
-    note: (split) => `Linhas tracejadas: tendência de cada tipo. Barra rosa: campanha completa; ${split}.`,
+    note: (split) => `Barra rosa: campanha completa; ${split}.`,
   },
 };
 
@@ -1458,33 +1458,6 @@ function describeUnsplit(idx) {
   if (contiguous) return `de ${MESES_LONGO[idx[0]]} a ${MESES_LONGO[idx[idx.length - 1]]} a base não separa os tipos`;
   return `nos meses ${idx.map((i) => meses[i]).join(", ")} a base não separa os tipos`;
 }
-
-/* Desenha as linhas tracejadas entre os centros de cada série em meses consecutivos. */
-const laminaTrend = {
-  id: "laminaTrend",
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    chart.data.datasets.forEach((ds, di) => {
-      const meta = chart.getDatasetMeta(di);
-      if (!ds.trendColor || meta.hidden) return;
-      const pts = meta.data.map((bar, i) => (ds.data[i] == null ? null
-        : { x: bar.x, y: (bar.y + bar.base) / 2, w: bar.width }));
-      ctx.save();
-      ctx.strokeStyle = ds.trendColor;
-      ctx.lineWidth = 1.4;
-      ctx.setLineDash([5, 4]);
-      ctx.beginPath();
-      for (let i = 0; i < pts.length - 1; i++) {
-        const a = pts[i], b = pts[i + 1];
-        if (!a || !b) continue;
-        ctx.moveTo(a.x + a.w / 2, a.y);
-        ctx.lineTo(b.x - b.w / 2, b.y);
-      }
-      ctx.stroke();
-      ctx.restore();
-    });
-  },
-};
 
 /* Modelo da lâmina (dados, subtítulo e nota) com os filtros atuais.
    Usado pela tela e pela exportação para PowerPoint — uma só fonte de dados. */
@@ -1532,7 +1505,7 @@ function renderLamina(key) {
     return {
       label: name, rawData: raw, stack: "lamina",
       data: raw.map((v, i) => (v == null || !monthTotal[i] ? null : (v / monthTotal[i]) * 100)),
-      backgroundColor: st.color, borderWidth: 0, trendColor: st.trend,
+      backgroundColor: st.color, borderWidth: 0,
       barPercentage: 0.8, categoryPercentage: 0.88,
       datalabels: {
         display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
@@ -1564,18 +1537,15 @@ function renderLamina(key) {
         y: { stacked: true, beginAtZero: true, min: 0, max: 100, display: false, grid: { display: false } },
       },
     },
-    plugins: [laminaTrend],
   });
 }
 
 /* ===================== Exportação para PowerPoint (lâminas) ===================== */
 /* Gera um .pptx com uma lâmina por slide (16:9). Textos, filetes, logos e gráfico são
-   objetos nativos do PowerPoint; o gráfico é editável (barras empilhadas + linhas tracejadas
-   de tendência). Os dados vêm de laminaModel(), o mesmo modelo da tela. */
+   objetos nativos do PowerPoint; o gráfico é editável (barras empilhadas). Os dados vêm de laminaModel(), o mesmo modelo da tela. */
 const PPT_W = 13.333, PPT_M = 0.6, PPT_CW = PPT_W - 2 * PPT_M;
 const PPT_FONT = "Segoe UI";
 const PPT_LOGO_PATHS = ["./assets/enaex-logo-color.png", "./assets/mineracao-vale-verde-logo.png"];
-const PPT_TREND = "Tendência · ";
 const PPT_FOOT = "STRICTLY PRIVATE AND CONFIDENTIAL";
 
 async function loadLogoForPpt(path) {
@@ -1592,7 +1562,6 @@ async function loadLogoForPpt(path) {
   return { data: dataUrl, ratio };
 }
 
-/* Ponto médio de cada segmento empilhado (onde a tendência tracejada passa), como no gráfico da tela. */
 /* Série de cada tipo como porcentagem do total do mês (colunas somam 100%). */
 function laminaPercent(series, names) {
   const out = {};
@@ -1606,18 +1575,6 @@ function laminaPercent(series, names) {
     });
   }
   return out;
-}
-
-function laminaTrendValues(series, names, name) {
-  return series[name].map((v, i) => {
-    if (v == null) return null;
-    let base = 0;
-    for (const k of names) {
-      if (k === name) break;
-      base += series[k][i] ?? 0;
-    }
-    return base + v / 2;
-  });
 }
 
 function laminaPeriodFile() {
@@ -1656,13 +1613,8 @@ function addLaminaSlide(pptx, lamina, logos) {
   // Mesmo critério da tela: cada coluna mensal soma 100% (rótulos em %).
   const pct = laminaPercent(series, names);
   const bars = names.map((n) => ({ name: n, labels: meses, values: pct[n] }));
-  const trends = names.map((n) => ({ name: PPT_TREND + n, labels: meses,
-    values: laminaTrendValues(pct, names, n) }));
   const fmt = '0"%";-0"%";;';
-  slide.addChart([
-    { type: pptx.charts.BAR, data: bars },
-    { type: pptx.charts.LINE, data: trends },
-  ], {
+  slide.addChart(pptx.charts.BAR, bars, {
     x: PPT_M, y: 2.12, w: PPT_CW, h: 4.02,
     barDir: "col", barGrouping: "stacked", barGapWidthPct: 42,
     chartColors: names.map((n) => LAMINA_STYLE[n].color.slice(1)),
@@ -1673,7 +1625,6 @@ function addLaminaSlide(pptx, lamina, logos) {
     catAxisLineShow: true, catAxisLineColor: "C4C7CB",
     catAxisLabelFontSize: 10, catAxisLabelColor: "404040", catAxisLabelFontFace: PPT_FONT,
     showLegend: true, legendPos: "b", legendFontSize: 9, legendColor: "404040", legendFontFace: PPT_FONT,
-    lineDash: "dash", lineSize: 1, lineDataSymbol: "none", lineSmooth: false,
     displayBlanksAs: "gap", showTitle: false,
   });
 
@@ -1685,8 +1636,8 @@ function addLaminaSlide(pptx, lamina, logos) {
     fontFace: PPT_FONT, fontSize: 7.5, color: "4A4A4A", charSpacing: 0.5 });
 }
 
-/* Ajustes que a API do PptxGenJS não expõe por série: cor do rótulo de cada barra,
-   cor das linhas de tendência, rótulos e pontos vazios, e legenda sem as tendências.
+/* Ajustes que a API do PptxGenJS não expõe por série: cor de cada barra e do seu rótulo,
+   e pontos vazios sem rótulo.
    Atua sobre o XML dos gráficos (o pacote .pptx é um zip). */
 async function patchPptxCharts(blob) {
   const zip = await window.JSZip.loadAsync(blob);
@@ -1694,15 +1645,8 @@ async function patchPptxCharts(blob) {
   for (const file of chartFiles) {
     let xml = await zip.file(file).async("string");
     xml = xml.replace(/<c:pt idx="\d+"><c:v><\/c:v><\/c:pt>/g, ""); // ponto vazio = sem barra/rótulo
-    const hiddenLegend = [];
     xml = xml.replace(/<c:ser>[\s\S]*?<\/c:ser>/g, (ser) => {
       const name = (ser.match(/<c:tx>[\s\S]*?<c:v>([^<]*)<\/c:v>/) || [])[1] || "";
-      if (name.startsWith(PPT_TREND)) {
-        const color = LAMINA_STYLE[name.slice(PPT_TREND.length)].trend.slice(1).toUpperCase();
-        hiddenLegend.push((ser.match(/<c:idx val="(\d+)"\/>/) || [])[1]);
-        return ser.replace(/<a:srgbClr val="[0-9A-Fa-f]{6}"\/>/g, `<a:srgbClr val="${color}"/>`)
-          .replace(/<c:showVal val="1"\/>/g, '<c:showVal val="0"/>');
-      }
       const st = LAMINA_STYLE[name];
       if (!st) return ser;
       return ser
@@ -1711,11 +1655,6 @@ async function patchPptxCharts(blob) {
         .replace(/(<c:dLbls>[\s\S]*?<a:defRPr[^>]*><a:solidFill>)<a:srgbClr val="[0-9A-Fa-f]{6}"\/>/,
           `$1<a:srgbClr val="${st.label.slice(1).toUpperCase()}"/>`);
     });
-    if (hiddenLegend.length) {
-      const entries = hiddenLegend.filter(Boolean)
-        .map((i) => `<c:legendEntry><c:idx val="${i}"/><c:delete val="1"/></c:legendEntry>`).join("");
-      xml = xml.replace(/(<c:legendPos val="[a-z]+"\/>)/, `$1${entries}`);
-    }
     zip.file(file, xml);
   }
   return zip.generateAsync({ type: "blob",
@@ -1854,6 +1793,32 @@ function setStatus(kind, text) {
 }
 function nowBR() { return new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); }
 
+/* Barra lateral de filtros: expandida por padrão em telas ≥1200px; no celular (<768px)
+   vira gaveta sobreposta acionada pelo botão de funil da topbar. */
+function initSidebar() {
+  const sb = document.getElementById("sidebar");
+  const scrim = document.getElementById("sidebar-scrim");
+  const toggle = document.getElementById("sb-toggle");
+  sb.classList.toggle("is-collapsed", !window.matchMedia("(min-width: 1200px)").matches);
+  const syncToggle = () => {
+    const open = !sb.classList.contains("is-collapsed");
+    toggle.classList.toggle("is-active", open);
+    toggle.setAttribute("aria-expanded", String(open));
+  };
+  syncToggle();
+  toggle.onclick = () => { sb.classList.toggle("is-collapsed"); syncToggle(); };
+  const setDrawer = (open) => {
+    sb.classList.toggle("is-drawer-open", open);
+    scrim.classList.toggle("is-visible", open);
+  };
+  document.getElementById("topbar-filter").onclick = () => setDrawer(!sb.classList.contains("is-drawer-open"));
+  scrim.onclick = () => setDrawer(false);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setDrawer(false); });
+  document.getElementById("sb-clear").onclick = () => document.getElementById("filter-reset").click();
+  document.getElementById("sb-export").onclick = () => document.getElementById("lamina-export").click();
+  document.getElementById("sb-reload").onclick = () => loadSheet().catch((e) => console.error(e));
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!window.Chart) {
     setStatus("error", "Biblioteca de gráficos (Chart.js) não carregou. Verifique sua conexão.");
@@ -1872,6 +1837,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("base-export").onclick = exportBaseCsv;
   document.getElementById("lamina-export").onclick = exportLaminasPptx;
   initBackToTop();
+  initSidebar();
   loadSheet().catch((e) => console.error(e));
   setInterval(() => loadSheet().catch(() => {}), 10 * 60 * 1000);
 });
