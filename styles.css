@@ -908,6 +908,70 @@ body {
 .to-top.is-visible:hover { opacity: 1; color: var(--red); border-color: var(--red); }
 .to-top:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 
+/* ---------- Resumo estatístico do período (mín / médio / máx) ---------- */
+.summary { margin-top: 40px; margin-bottom: 56px; break-inside: avoid; }
+.summary__head {
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--enaex-rule, #e5e5e5);
+}
+.summary__head h2 {
+  margin: 0;
+  color: var(--enaex-slate, #3C3F44);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.summary__head p {
+  margin: 4px 0 0;
+  color: var(--enaex-text, #4a4a4a);
+  font-size: 12.5px;
+}
+.summary__wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--enaex-text, #4a4a4a);
+}
+.summary-table th,
+.summary-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--enaex-rule, #e5e5e5);
+  text-align: right;
+  white-space: nowrap;
+}
+.summary-table thead th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #6c747b);
+  border-bottom: 1px solid var(--enaex-slate, #3C3F44);
+}
+.summary-table th:first-child,
+.summary-table tbody th { text-align: left; font-weight: 400; color: var(--enaex-slate, #3C3F44); }
+.summary-table__group th {
+  padding: 16px 12px 5px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--red, #B5121B);
+  border-bottom: 1px solid var(--enaex-slate, #3C3F44);
+}
+.summary-table__hint { color: var(--muted, #6c747b); font-size: 11px; }
+.summary-table td.is-max { font-weight: 700; color: var(--enaex-slate, #3C3F44); background: #f7f7f7; }
+.summary-table td.summary-table__n { color: var(--muted, #6c747b); font-size: 11.5px; }
+@media (max-width: 560px) {
+  .summary { margin-top: 28px; }
+  .summary-table { font-size: 12px; }
+  .summary-table th, .summary-table td { padding: 6px 8px; }
+  .summary-table th:first-child, .summary-table tbody th { min-width: 150px; }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 980px) {
   .chart-row { grid-template-columns: 1fr; }

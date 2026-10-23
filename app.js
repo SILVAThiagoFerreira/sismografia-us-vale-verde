@@ -509,6 +509,7 @@ function updateActiveFilters() {
 function render() {
   const { data, crit } = filtered();
   renderKpis(data, crit);
+  renderSummary(data);
   renderVF(data, crit);
   renderByType(data, crit);
   renderAirByType(data);
@@ -712,6 +713,79 @@ function renderKpis(data, crit) {
   airEl.style.color = (maxAir != null && maxAir > nbrAir) ? C.neutral : C.ink;
   document.getElementById("kpi-air-hint").textContent =
     airOver > 0 ? `${fmtInt(airOver)} acima de ${nbrAir} dBL` : `Limite NBR: ${nbrAir} dBL`;
+}
+
+/* Resumo estatístico (mínimo, médio, máximo) do conjunto filtrado.
+   Cada grandeza usa só os seus valores válidos (campo nulo/não numérico é ignorado).
+   PVS e "PPV resultante" são o mesmo campo da planilha (RESULT. (MM/S)), como nas lâminas. */
+const SUMMARY_GROUPS = [
+  { title: "Velocidade de vibração (mm/s)", rows: [
+    { label: "PPV Transversal", field: "tv", dec: 2 },
+    { label: "PPV Vertical", field: "vv", dec: 2 },
+    { label: "PPV Longitudinal", field: "lv", dec: 2 },
+    { label: "PPV resultante (pico)", field: "ppv", dec: 2 },
+    { label: "PVS", field: "ppv", dec: 2, hint: "igual à resultante" },
+  ] },
+  { title: "Pressão sonora", rows: [
+    { label: "PSPL (dBL)", field: "air", dec: 1, positive: true },
+  ] },
+  { title: "Frequência (Hz)", rows: [
+    { label: "Frequência Transversal", field: "tf", dec: 1, positive: true },
+    { label: "Frequência Vertical", field: "vf", dec: 1, positive: true },
+    { label: "Frequência Longitudinal", field: "lf", dec: 1, positive: true },
+  ] },
+];
+
+function summaryStats(vals) {
+  if (!vals.length) return null;
+  let min = Infinity, max = -Infinity, sum = 0;
+  for (const v of vals) { if (v < min) min = v; if (v > max) max = v; sum += v; }
+  return { min, max, avg: sum / vals.length, n: vals.length };
+}
+
+/* Texto do período/filtros ativos, para a legenda do resumo (e para a captura de tela). */
+function summaryScope() {
+  const y = document.getElementById("filter-year").value;
+  const mo = document.getElementById("filter-month").value;
+  const from = document.getElementById("filter-from").value;
+  const to = document.getElementById("filter-to").value;
+  const parts = [];
+  if (y && mo) parts.push(`${meses[+mo - 1]}/${y}`);
+  else {
+    if (y) parts.push(`Ano ${y}`);
+    if (mo) parts.push(`${meses[+mo - 1]} (todos os anos)`);
+  }
+  if (from || to) parts.push(`${brDate(from) || "início"} a ${brDate(to) || "fim"}`);
+  const period = parts.length ? parts.join(" · ") : "Todo o histórico";
+  const extra = [];
+  const point = document.getElementById("filter-point").value;
+  const type = document.getElementById("filter-type").value;
+  const fire = document.getElementById("filter-fire").value;
+  if (point) extra.push(`Ponto: ${point}`);
+  if (type) extra.push(`Tipo: ${type}`);
+  if (fire) extra.push(`Fogo: ${fire}`);
+  return { period, extra };
+}
+
+function renderSummary(data) {
+  const { period, extra } = summaryScope();
+  document.getElementById("summary-sub").textContent =
+    [`Período: ${period}`, `${fmtInt(data.length)} eventos`, ...extra].join(" · ");
+
+  document.getElementById("summary-body").innerHTML = SUMMARY_GROUPS.map((g) => {
+    const head = `<tr class="summary-table__group"><th colspan="5" scope="colgroup">${escapeText(g.title)}</th></tr>`;
+    const rows = g.rows.map((row) => {
+      // Zero em frequência ou PSPL não é leitura válida (ausência de dado registrada como 0).
+      const s = summaryStats(data.map((r) => r[row.field])
+        .filter((v) => v != null && isFinite(v) && (!row.positive || v > 0)));
+      const cell = (key, cls = "") => `<td class="${cls}">${s ? fmtNum(s[key], row.dec) : "—"}</td>`;
+      const hint = row.hint ? ` <span class="summary-table__hint">(${escapeText(row.hint)})</span>` : "";
+      return `<tr><th scope="row">${row.label}${hint}</th>` +
+        cell("min") + cell("avg") + cell("max", "is-max") +
+        `<td class="summary-table__n">${s ? fmtInt(s.n) : "0"}</td></tr>`;
+    }).join("");
+    return head + rows;
+  }).join("");
 }
 
 
