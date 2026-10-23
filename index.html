@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=21">
+  <link rel="stylesheet" href="./styles.css?v=22">
 </head>
 <body>
   <header class="topbar">
@@ -126,8 +126,15 @@
 
     <section class="summary" id="summary" aria-labelledby="summary-title">
       <div class="summary__head">
-        <h2 id="summary-title">Resumo estatístico do período</h2>
-        <p id="summary-sub">—</p>
+        <div class="summary__titles">
+          <h2 id="summary-title">Resumo estatístico do período</h2>
+          <p id="summary-sub">—</p>
+        </div>
+        <button id="summary-export" type="button" class="summary__export">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M12 11v6m0 0-2.5-2.5M12 17l2.5-2.5"/></svg>
+          <span>Exportar Excel</span>
+        </button>
+        <p id="summary-export-msg" class="summary__export-msg" role="status" hidden></p>
       </div>
       <div class="summary__wrap">
         <table class="summary-table">
@@ -351,6 +358,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-  <script src="./app.js?v=26"></script>
+  <script src="./app.js?v=27"></script>
 </body>
 </html>

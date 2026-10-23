@@ -777,23 +777,40 @@ function summaryScope() {
   return { period, extra };
 }
 
-function renderSummary(data) {
+/* Estatística de uma linha do resumo (usada pela tabela na tela e pelo Excel). */
+function summaryRowStats(data, row) {
+  // Zero em frequência ou PSPL não é leitura válida (ausência de dado registrada como 0).
+  const items = data.map((r) => {
+    if (row.peak) return peakOf(r);
+    const v = r[row.field];
+    return v != null && isFinite(v) && (!row.positive || v > 0) ? { v } : null;
+  }).filter(Boolean);
+  const s = summaryStats(items.map((i) => i.v));
+  // Eixo que deu o maior pico (tooltip na célula de máximo).
+  const maxItem = row.peak && s ? items.reduce((a, b) => (b.v > a.v ? b : a)) : null;
+  return { s, maxItem };
+}
+
+/* Legenda do período: mesmo texto na tela e no Excel. Sem intervalo de datas, mostra o 1º e o último evento. */
+function summaryLine(data) {
   const { period, extra } = summaryScope();
-  document.getElementById("summary-sub").textContent =
-    [`Período: ${period}`, `${fmtInt(data.length)} eventos`, ...extra].join(" · ");
+  const hasRange = !!(document.getElementById("filter-from").value || document.getElementById("filter-to").value);
+  let p = period;
+  if (!hasRange && data.length) {
+    const first = data.reduce((a, b) => (b.date < a.date ? b : a)).date;
+    const last = data.reduce((a, b) => (b.date > a.date ? b : a)).date;
+    p = `${period} · ${fmtDate(first)} a ${fmtDate(last)}`;
+  }
+  return [`Período: ${p}`, `${fmtInt(data.length)} eventos`, ...extra].join(" · ");
+}
+
+function renderSummary(data) {
+  document.getElementById("summary-sub").textContent = summaryLine(data);
 
   document.getElementById("summary-body").innerHTML = SUMMARY_GROUPS.map((g) => {
     const head = `<tr class="summary-table__group"><th colspan="5" scope="colgroup">${escapeText(g.title)}</th></tr>`;
     const rows = g.rows.map((row) => {
-      // Zero em frequência ou PSPL não é leitura válida (ausência de dado registrada como 0).
-      const items = data.map((r) => {
-        if (row.peak) return peakOf(r);
-        const v = r[row.field];
-        return v != null && isFinite(v) && (!row.positive || v > 0) ? { v } : null;
-      }).filter(Boolean);
-      const s = summaryStats(items.map((i) => i.v));
-      // Eixo que deu o maior pico (aparece como tooltip na célula de máximo).
-      const maxItem = row.peak && s ? items.reduce((a, b) => (b.v > a.v ? b : a)) : null;
+      const { s, maxItem } = summaryRowStats(data, row);
       const cell = (key, cls = "", attr = "") => `<td class="${cls}"${attr}>${s ? fmtNum(s[key], row.dec) : "—"}</td>`;
       const hint = row.hint ? ` <span class="summary-table__hint">(${escapeText(row.hint)})</span>` : "";
       return `<tr><th scope="row">${row.label}${hint}</th>` +
@@ -803,6 +820,137 @@ function renderSummary(data) {
     }).join("");
     return head + rows;
   }).join("");
+}
+
+/* ===================== Exportação Excel do resumo (ExcelJS, carregado sob demanda) ===================== */
+const EXCELJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+let excelJsPromise = null;
+function loadExcelJs() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (!excelJsPromise) {
+    excelJsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = EXCELJS_URL;
+      script.async = true;
+      script.onload = () => {
+        if (window.ExcelJS) resolve(window.ExcelJS);
+        else { excelJsPromise = null; reject(new Error("ExcelJS indisponível")); }
+      };
+      script.onerror = () => { excelJsPromise = null; script.remove(); reject(new Error("falha ao carregar ExcelJS")); };
+      document.head.appendChild(script);
+    });
+  }
+  return excelJsPromise;
+}
+
+/* Parte do nome do arquivo com o período (ex.: Mar-2026, 2026, 01-10-2026_a_15-10-2026). */
+function summaryFileTag() {
+  const y = document.getElementById("filter-year").value;
+  const mo = document.getElementById("filter-month").value;
+  const from = document.getElementById("filter-from").value;
+  const to = document.getElementById("filter-to").value;
+  const parts = [];
+  if (y && mo) parts.push(`${meses[+mo - 1]}-${y}`);
+  else {
+    if (y) parts.push(y);
+    if (mo) parts.push(`${meses[+mo - 1]}-todos-os-anos`);
+  }
+  if (from || to) parts.push(`${from ? brDate(from) : "inicio"}_a_${to ? brDate(to) : "fim"}`);
+  const tag = parts.length ? parts.join("_") : "todo-o-historico";
+  return tag.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+async function exportSummaryXlsx() {
+  const btn = document.getElementById("summary-export");
+  const msg = document.getElementById("summary-export-msg");
+  msg.hidden = true;
+  msg.textContent = "";
+  btn.disabled = true;
+  try {
+    const ExcelJS = await loadExcelJs();
+    const data = filtered().data; // mesmo conjunto filtrado da tela
+
+    const INK = "FF38424B", RED = "FFB5121B", MUTED = "FF6C747B", RULE = "FFE5E5E5", FILL = "FFF4F4F4";
+    const font = (o) => ({ name: "Calibri", ...o });
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Resumo", { views: [{ showGridLines: false }] });
+    ws.getColumn(1).width = 45;
+    for (let c = 2; c <= 5; c++) ws.getColumn(c).width = 14;
+
+    const t = ws.getCell("A1");
+    t.value = "Resumo estatístico do período";
+    t.font = font({ bold: true, size: 14, color: { argb: INK } });
+    ws.getRow(1).height = 22;
+    const sub = ws.getCell("A2");
+    sub.value = summaryLine(data);
+    sub.font = font({ size: 10, color: { argb: MUTED } });
+
+    const header = ws.getRow(4);
+    ["Grandeza", "Mínimo", "Médio", "Máximo", "Leituras"].forEach((label, i) => {
+      const c = header.getCell(i + 1);
+      c.value = label;
+      c.font = font({ bold: true, size: 9, color: { argb: MUTED } });
+      c.alignment = { horizontal: i ? "right" : "left", vertical: "bottom" };
+      c.border = { bottom: { style: "thin", color: { argb: INK } } };
+    });
+    header.height = 18;
+
+    let r = 5;
+    for (const g of SUMMARY_GROUPS) {
+      const gr = ws.getRow(r);
+      gr.getCell(1).value = g.title.toUpperCase();
+      gr.getCell(1).font = font({ bold: true, size: 9, color: { argb: RED } });
+      for (let c = 1; c <= 5; c++) gr.getCell(c).border = { bottom: { style: "thin", color: { argb: INK } } };
+      gr.height = 20;
+      r++;
+      for (const row of g.rows) {
+        const { s } = summaryRowStats(data, row);
+        const line = ws.getRow(r);
+        const lab = line.getCell(1);
+        if (row.hint) {
+          lab.value = { richText: [
+            { text: row.label + " ", font: font({ size: 10, color: { argb: INK } }) },
+            { text: `(${row.hint})`, font: font({ size: 8, color: { argb: MUTED } }) },
+          ] };
+        } else {
+          lab.value = row.label;
+          lab.font = font({ size: 10, color: { argb: INK } });
+        }
+        [s && s.min, s && s.avg, s && s.max].forEach((v, i) => {
+          const c = line.getCell(i + 2);
+          if (v == null) c.value = "—";
+          else { c.value = v; c.numFmt = row.dec === 1 ? "0.0" : "0.00"; }
+          c.font = font({ size: 10, bold: i === 2, color: { argb: INK } });
+          c.alignment = { horizontal: "right" };
+          if (i === 2) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: FILL } };
+        });
+        const n = line.getCell(5);
+        n.value = s ? s.n : 0;
+        n.numFmt = "0";
+        n.font = font({ size: 9, color: { argb: MUTED } });
+        n.alignment = { horizontal: "right" };
+        for (let c = 1; c <= 5; c++) line.getCell(c).border = { bottom: { style: "thin", color: { argb: RULE } } };
+        line.height = 18;
+        r++;
+      }
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `Resumo_Sismografia_${summaryFileTag()}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (e) {
+    console.warn("Exportação Excel falhou:", e);
+    msg.textContent = "Não foi possível gerar o Excel. Verifique a conexão e tente de novo.";
+    msg.hidden = false;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 
@@ -1965,6 +2113,7 @@ document.addEventListener("DOMContentLoaded", () => {
   Object.assign(Chart.defaults.plugins.tooltip, tooltipBase());
   initTable();
   document.getElementById("base-export").onclick = exportBaseCsv;
+  document.getElementById("summary-export").onclick = exportSummaryXlsx;
   document.getElementById("lamina-export").onclick = exportLaminasPptx;
   initBackToTop();
   initSidebar();
