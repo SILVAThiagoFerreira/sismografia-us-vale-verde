@@ -717,14 +717,15 @@ function renderKpis(data, crit) {
 
 /* Resumo estatístico (mínimo, médio, máximo) do conjunto filtrado.
    Cada grandeza usa só os seus valores válidos (campo nulo/não numérico é ignorado).
-   PVS e "PPV resultante" são o mesmo campo da planilha (RESULT. (MM/S)), como nas lâminas. */
+   PVS e resultante são o mesmo campo da planilha (RESULT. (MM/S)), por isso aparecem em uma linha só.
+   "Maior PPV" = maior dos eixos T, V, L em cada evento; estatística sobre esses picos por evento. */
 const SUMMARY_GROUPS = [
   { title: "Velocidade de vibração (mm/s)", rows: [
     { label: "PPV Transversal", field: "tv", dec: 2 },
     { label: "PPV Vertical", field: "vv", dec: 2 },
     { label: "PPV Longitudinal", field: "lv", dec: 2 },
-    { label: "PPV resultante (pico)", field: "ppv", dec: 2 },
-    { label: "PVS", field: "ppv", dec: 2, hint: "igual à resultante" },
+    { label: "Maior PPV (maior eixo)", peak: true, dec: 2, hint: "pico entre T, V e L por monitoramento" },
+    { label: "PVS (resultante)", field: "ppv", dec: 2 },
   ] },
   { title: "Pressão sonora", rows: [
     { label: "PSPL (dBL)", field: "air", dec: 1, positive: true },
@@ -735,6 +736,15 @@ const SUMMARY_GROUPS = [
     { label: "Frequência Longitudinal", field: "lf", dec: 1, positive: true },
   ] },
 ];
+
+/* Pico do evento entre os eixos T, V e L (ignora eixos vazios). Null se os três faltarem. */
+function peakOf(r) {
+  let best = null;
+  for (const [axis, v] of [["T", r.tv], ["V", r.vv], ["L", r.lv]]) {
+    if (v != null && isFinite(v) && (best == null || v > best.v)) best = { v, axis };
+  }
+  return best;
+}
 
 function summaryStats(vals) {
   if (!vals.length) return null;
@@ -776,12 +786,19 @@ function renderSummary(data) {
     const head = `<tr class="summary-table__group"><th colspan="5" scope="colgroup">${escapeText(g.title)}</th></tr>`;
     const rows = g.rows.map((row) => {
       // Zero em frequência ou PSPL não é leitura válida (ausência de dado registrada como 0).
-      const s = summaryStats(data.map((r) => r[row.field])
-        .filter((v) => v != null && isFinite(v) && (!row.positive || v > 0)));
-      const cell = (key, cls = "") => `<td class="${cls}">${s ? fmtNum(s[key], row.dec) : "—"}</td>`;
+      const items = data.map((r) => {
+        if (row.peak) return peakOf(r);
+        const v = r[row.field];
+        return v != null && isFinite(v) && (!row.positive || v > 0) ? { v } : null;
+      }).filter(Boolean);
+      const s = summaryStats(items.map((i) => i.v));
+      // Eixo que deu o maior pico (aparece como tooltip na célula de máximo).
+      const maxItem = row.peak && s ? items.reduce((a, b) => (b.v > a.v ? b : a)) : null;
+      const cell = (key, cls = "", attr = "") => `<td class="${cls}"${attr}>${s ? fmtNum(s[key], row.dec) : "—"}</td>`;
       const hint = row.hint ? ` <span class="summary-table__hint">(${escapeText(row.hint)})</span>` : "";
       return `<tr><th scope="row">${row.label}${hint}</th>` +
-        cell("min") + cell("avg") + cell("max", "is-max") +
+        cell("min") + cell("avg") +
+        cell("max", "is-max", maxItem ? ` title="máx. no eixo ${maxItem.axis}"` : "") +
         `<td class="summary-table__n">${s ? fmtInt(s.n) : "0"}</td></tr>`;
     }).join("");
     return head + rows;
