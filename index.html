@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Sismografia do desmonte com explosivos — vibração (PPV), frequência e sobrepressão acústica conforme NBR 9653. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=23">
+  <link rel="stylesheet" href="./styles.css?v=24">
 </head>
 <body>
   <header class="topbar">
@@ -302,7 +302,19 @@
       <p class="lamina__foot">STRICTLY PRIVATE AND CONFIDENTIAL</p>
     </section>
 
-    <!-- Sem x Com Blastbag: média geral antes do início da Blastbag; por tipo depois (dados em app.js) -->
+    <!-- Sem x Com Blastbag: média geral antes do início da Blastbag; por tipo depois (dados e modos em app.js) -->
+    <div class="extra-section__head blast-head">
+      <div>
+        <h2>Sem x Com Blastbag</h2>
+        <p>Pressão acústica e vibração médias dos desmontes · padrão automático: por mês com ano filtrado, por ano em todos os anos</p>
+      </div>
+      <div class="seg" id="blast-modo" role="group" aria-label="Agrupamento dos gráficos Sem x Com Blastbag">
+        <button type="button" class="seg__btn" data-modo="mes" aria-pressed="false">Por mês</button>
+        <button type="button" class="seg__btn" data-modo="ano" aria-pressed="false">Por ano</button>
+        <button type="button" class="seg__btn" data-modo="media" aria-pressed="false">Média mensal (todos os anos)</button>
+      </div>
+    </div>
+
     <section class="lamina" aria-labelledby="blast-air-title">
       <div class="lamina__head">
         <div>
@@ -314,7 +326,7 @@
           <img src="./assets/mineracao-vale-verde-logo.png" alt="Mineração Vale Verde">
         </div>
       </div>
-      <p class="lamina__caption">Média mensal antes e depois do início da Blastbag:</p>
+      <p class="lamina__caption" id="blast-air-cap">Média mensal antes e depois do início da Blastbag:</p>
       <div class="lamina__chart"><canvas id="blast-air"></canvas></div>
       <p class="lamina__note" id="blast-air-note"></p>
       <p class="lamina__foot">STRICTLY PRIVATE AND CONFIDENTIAL</p>
@@ -331,7 +343,7 @@
           <img src="./assets/mineracao-vale-verde-logo.png" alt="Mineração Vale Verde">
         </div>
       </div>
-      <p class="lamina__caption">Média mensal antes e depois do início da Blastbag:</p>
+      <p class="lamina__caption" id="blast-vib-cap">Média mensal antes e depois do início da Blastbag:</p>
       <div class="lamina__chart"><canvas id="blast-vib"></canvas></div>
       <p class="lamina__note" id="blast-vib-note"></p>
       <p class="lamina__foot">STRICTLY PRIVATE AND CONFIDENTIAL</p>
@@ -393,6 +405,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-  <script src="./app.js?v=28"></script>
+  <script src="./app.js?v=29"></script>
 </body>
 </html>

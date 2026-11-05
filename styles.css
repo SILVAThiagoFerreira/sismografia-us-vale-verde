@@ -841,6 +841,38 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* Sem x Com Blastbag: seletor de agrupamento no cabeçalho da seção (mesmo estilo dos botões) */
+.blast-head {
+  margin-top: 56px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.blast-head + .lamina { margin-top: 24px; }
+.seg { display: flex; flex-wrap: wrap; }
+.seg__btn {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  margin-left: -1px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.seg__btn:first-child { margin-left: 0; }
+.seg__btn:hover,
+.seg__btn:focus-visible,
+.seg__btn.is-active { position: relative; z-index: 1; }
+.seg__btn:hover { color: var(--red); border-color: var(--red); }
+.seg__btn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.seg__btn.is-active { color: #ffffff; background: var(--red); border-color: var(--red); }
+@media print { .blast-head { display: none !important; } }
+
 /* Rodapé: filete fino escuro */
 .confidential {
   width: min(1440px, calc(100% - 40px));

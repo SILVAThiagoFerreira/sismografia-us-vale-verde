@@ -401,9 +401,9 @@ function hideSearchSuggestions() {
 }
 
 /* Registros que passam nos filtros. Lâminas mensais usam month:false e type:false,
-   porque já quebram os dados por mês e por tipo. */
-function applyFilters({ month = true, type = true } = {}) {
-  const y = document.getElementById("filter-year").value;
+   porque já quebram os dados por mês e por tipo. year:false ignora o filtro ANO (média de todos os anos). */
+function applyFilters({ month = true, type = true, year = true } = {}) {
+  const y = year ? document.getElementById("filter-year").value : "";
   const mo = month ? document.getElementById("filter-month").value : "";
   const p = document.getElementById("filter-point").value;
   const fire = document.getElementById("filter-fire").value;
@@ -515,8 +515,7 @@ function render() {
   renderAirByType(data);
   renderLamina("vib");
   renderLamina("air");
-  renderBlastbag("air");
-  renderBlastbag("vib");
+  renderBlastSection();
   renderPPV(data, crit);
   renderAir(data);
   renderTrendPPV(data);
@@ -1782,29 +1781,47 @@ function renderLamina(key) {
 }
 
 /* ===================== Sem x Com Blastbag (pressão acústica e vibração) ===================== */
-/* Antes do início da Blastbag: uma série só, a média de todos os desmontes do mês.
-   A partir do início: uma série por tipo de evento (Produção e Pré-corte).
-   Eixo X: meses (Jan–Dez) com dado na seleção. Cada registro entra no lado "Sem" ou "Com"
-   pela sua data. O primeiro mês com tipo de evento preenchido na planilha é 2026-05. */
+/* Três agrupamentos, escolhidos no seletor do cabeçalho da seção (valem para os dois gráficos):
+   - "mes":   Jan–Dez com os filtros atuais; cada registro entra no lado "Sem" ou "Com" pela sua data.
+   - "ano":   um ponto por ano. Anos antes do início: média geral dos desmontes ("Sem").
+              Anos a partir do início: média de Produção e de Pré-corte ("Com"); no ano do início,
+              só os eventos a partir da data de início.
+   - "media": Jan–Dez somando todos os anos, sem divisão Sem/Com.
+   Padrão automático: com ANO filtrado, "mes"; em todos os anos, "ano". Escolha manual vale até nova escolha. */
 const BLASTBAG_INICIO = "2026-05"; // AAAA-MM: mude só esta linha para outra data de início
 const BLASTBAG_COR = {
   sem: "#C4939A", prod: "#E30613", pre: "#3A8E2A", texto: "#404040",
   regiao: "#E2EEDB", faixa: "#BDD9B0", inicio: "#8A9099",
 };
 const BLASTBAG = {
-  air: { canvas: "blast-air", subId: "blast-air-sub", noteId: "blast-air-note", metric: "air", decimals: 1,
-    subLabel: "Pressão acústica média (dBL) dos desmontes por mês", axisTitle: "Pressão acústica (dBL)", beginAtZero: false },
-  vib: { canvas: "blast-vib", subId: "blast-vib-sub", noteId: "blast-vib-note", metric: "ppv", decimals: 2,
-    subLabel: "Vibração média (mm/s) dos desmontes por mês", axisTitle: "Vibração (mm/s)", beginAtZero: true },
+  air: { canvas: "blast-air", subId: "blast-air-sub", noteId: "blast-air-note", capId: "blast-air-cap",
+    metric: "air", decimals: 1, metricLabel: "Pressão acústica média (dBL)",
+    axisTitle: "Pressão acústica (dBL)", beginAtZero: false, faixa: true },
+  vib: { canvas: "blast-vib", subId: "blast-vib-sub", noteId: "blast-vib-note", capId: "blast-vib-cap",
+    metric: "ppv", decimals: 2, metricLabel: "Vibração média (mm/s)",
+    axisTitle: "Vibração (mm/s)", beginAtZero: true, faixa: false },
 };
+const BLAST_CAPTION = {
+  mes: "Média mensal antes e depois do início da Blastbag:",
+  ano: "Média anual antes e depois do início da Blastbag:",
+  media: "Média mensal de todos os anos, por mês do calendário:",
+};
+let BLAST_MODO = null; // escolha manual do seletor; null = automático
 const blastIsProd = (r) => norm(r.tipo) === norm("Produção");
 const blastIsPre = (r) => norm(r.tipo) === norm("Pré-corte");
 
-/* Trecho do subtítulo: "em 2026, de janeiro a outubro" (ou o período escolhido). */
-function blastbagPeriodText(monthsIdx) {
+/* Modo efetivo: a escolha manual ou, no automático, "mes" com ANO filtrado e "ano" sem ANO. */
+function blastModo() {
+  if (BLAST_MODO) return BLAST_MODO;
+  return document.getElementById("filter-year").value ? "mes" : "ano";
+}
+
+/* Trecho do subtítulo: "em 2026, de janeiro a outubro" (ou o período escolhido).
+   Com useYear = false (média de todos os anos), o ANO filtrado não entra no texto. */
+function blastbagPeriodText(monthsIdx, useYear = true) {
   const from = document.getElementById("filter-from").value;
   const to = document.getElementById("filter-to").value;
-  const year = document.getElementById("filter-year").value;
+  const year = useYear ? document.getElementById("filter-year").value : "";
   const where = from || to ? `no período ${brDate(from) || "início"} a ${brDate(to) || "fim"}`
     : year ? `em ${year}` : "em todos os anos";
   const first = monthsIdx[0], last = monthsIdx[monthsIdx.length - 1];
@@ -1813,40 +1830,69 @@ function blastbagPeriodText(monthsIdx) {
   return where + months;
 }
 
-/* Séries mensais (Jan–Dez) com os filtros atuais, do lado "Sem" ou "Com" conforme a data do registro. */
-function blastbagModel(key) {
+/* Séries do gráfico com os filtros atuais. O eixo X depende do modo:
+   "mes" e "media" = meses (Jan–Dez); "ano" = anos (do menor ao maior ano com dado). */
+function blastbagModel(key, modo) {
   const B = BLASTBAG[key];
-  const base = applyFilters({ month: false, type: false }).filter((r) => r[B.metric] != null);
+  const startYear = +BLASTBAG_INICIO.slice(0, 4);
   const startMonth = +BLASTBAG_INICIO.slice(5);
   const isCom = (r) => monthKey(r) >= BLASTBAG_INICIO;
   const avg = (rs) => (rs.length ? rs.reduce((s, r) => s + r[B.metric], 0) / rs.length : null);
-  const hasCom = base.some((r) => isCom(r) && (blastIsProd(r) || blastIsPre(r)));
-  // Sem dado com Blastbag na seleção, a média geral vale para todos os meses.
-  const semShown = (m) => !hasCom || m < startMonth;
+  const split = modo !== "media";
+
+  // "media" ignora o filtro de ANO (é a média de todos os anos); "mes" e "ano" o respeitam.
+  // "mes" já trata o mês no eixo, então só "ano" aplica o filtro de MÊS.
+  const base = (modo === "media"
+    ? applyFilters({ month: false, type: false, year: false })
+    : applyFilters({ month: modo === "ano", type: false })).filter((r) => r[B.metric] != null);
+  const hasCom = split && base.some((r) => isCom(r) && (blastIsProd(r) || blastIsPre(r)));
+  // Sem dado com Blastbag na seleção, a média geral vale para todos os pontos.
+  const semRs = (rs) => (hasCom ? rs.filter((r) => !isCom(r)) : rs);
+
+  let groups;
+  if (modo === "ano") {
+    let minY = Infinity, maxY = -Infinity;
+    base.forEach((r) => { if (r.ano < minY) minY = r.ano; if (r.ano > maxY) maxY = r.ano; });
+    groups = base.length ? [...Array(maxY - minY + 1)].map((_, i) => minY + i) : [];
+  } else {
+    groups = [...Array(12)].map((_, i) => i + 1);
+  }
+  const groupOf = modo === "ano" ? (r) => r.ano : (r) => r.mes;
 
   const sem = {}, prod = {}, pre = {};
-  const all = [...Array(12)].map((_, i) => i + 1);
-  all.forEach((m) => {
-    const rs = base.filter((r) => r.mes === m);
-    sem[m] = avg(rs.filter((r) => !isCom(r)));
-    prod[m] = avg(rs.filter((r) => isCom(r) && blastIsProd(r)));
-    pre[m] = avg(rs.filter((r) => isCom(r) && blastIsPre(r)));
+  groups.forEach((g) => {
+    const rs = base.filter((r) => groupOf(r) === g);
+    if (modo === "media") {
+      sem[g] = avg(rs);
+      prod[g] = avg(rs.filter((r) => blastIsProd(r)));
+      pre[g] = avg(rs.filter((r) => blastIsPre(r)));
+    } else {
+      const semShown = !hasCom || (modo === "ano" ? g < startYear : g < startMonth);
+      sem[g] = semShown ? avg(semRs(rs)) : null;
+      prod[g] = avg(rs.filter((r) => isCom(r) && blastIsProd(r)));
+      pre[g] = avg(rs.filter((r) => isCom(r) && blastIsPre(r)));
+    }
   });
-  const months = all.filter((m) => (semShown(m) && sem[m] != null) || prod[m] != null || pre[m] != null);
-  const n = months.length;
-  // Primeiro mês com Blastbag no eixo; n = nenhum (a região "Com" não aparece).
-  const k = months.findIndex((m) => m >= startMonth);
-  const comAt = hasCom && k >= 0 ? k : n;
+  // Meses sem nenhuma série somem; anos ficam todos (um ano sem dado aparece vazio no eixo).
+  const keep = modo === "ano" ? groups
+    : groups.filter((g) => sem[g] != null || prod[g] != null || pre[g] != null);
+  const n = keep.length;
 
-  const semArr = months.map((m) => (semShown(m) ? sem[m] : null));
-  const prodArr = months.map((m) => prod[m]);
-  const preArr = months.map((m) => pre[m]);
+  // Primeiro ponto "Com" no eixo; n = nenhum (a região "Com" não aparece).
+  const thr = modo === "ano" ? startYear : startMonth;
+  const k = keep.findIndex((g) => g >= thr);
+  const comAt = split && hasCom && k >= 0 ? k : n;
+
+  const semArr = keep.map((g) => sem[g]);
+  const prodArr = keep.map((g) => prod[g]);
+  const preArr = keep.map((g) => pre[g]);
   const comVals = [...prodArr, ...preArr].filter((v) => v != null);
-  const band = comAt < n && comVals.length ? { min: Math.min(...comVals), max: Math.max(...comVals) } : null;
+  const band = B.faixa && split && comAt < n && comVals.length
+    ? { min: Math.min(...comVals), max: Math.max(...comVals) } : null;
 
-  // Rótulo: sozinho no mês, acima/abaixo alternando; com dois tipos no mesmo mês, o maior fica acima.
+  // Rótulo: sozinho no ponto, acima/abaixo alternando; com dois tipos no mesmo ponto, o maior fica acima.
   const above = { sem: [], prod: [], pre: [] };
-  months.forEach((_, i) => {
+  keep.forEach((_, i) => {
     const vals = { sem: semArr[i], prod: prodArr[i], pre: preArr[i] };
     const present = Object.keys(vals).filter((kk) => vals[kk] != null);
     const top = [...present].sort((a, b) => vals[b] - vals[a])[0];
@@ -1854,13 +1900,36 @@ function blastbagModel(key) {
   });
 
   const startTxt = `${MESES_LONGO[startMonth - 1]} de ${BLASTBAG_INICIO.slice(0, 4)}`;
-  return {
-    B, months, n, comAt, band, above,
-    series: { sem: semArr, prod: prodArr, pre: preArr },
-    subText: `${B.subLabel} ${blastbagPeriodText(months.map((m) => m - 1))}.`,
-    noteText: n
+  const from = document.getElementById("filter-from").value;
+  const to = document.getElementById("filter-to").value;
+  const first = keep[0], last = keep[n - 1];
+  let subText, noteText;
+  if (modo === "ano") {
+    const range = n ? (first === last ? `em ${first}` : `de ${first} a ${last}`) : "";
+    const periodTxt = from || to ? `no período ${brDate(from) || "início"} a ${brDate(to) || "fim"}` : "";
+    subText = [`${B.metricLabel} dos desmontes por ano`, range, periodTxt].filter(Boolean).join(", ") + ".";
+    noteText = n
+      ? `Sem Blastbag: média de todos os desmontes de cada ano anterior a ${startTxt}. ` +
+        `Com Blastbag (a partir de ${startTxt}): média de Produção e Pré-corte de cada ano; ` +
+        `no ano de início, só eventos a partir dessa data.`
+      : "Sem dados para os filtros atuais.";
+  } else if (modo === "media") {
+    subText = `${B.metricLabel} dos desmontes por mês do calendário, ${blastbagPeriodText(keep.map((m) => m - 1), false)}.`;
+    noteText = n
+      ? "Média de todos os anos por mês do calendário: desmontes (todos os eventos), Produção e Pré-corte. Sem divisão Sem/Com Blastbag."
+      : "Sem dados para os filtros atuais.";
+  } else {
+    subText = `${B.metricLabel} dos desmontes por mês ${blastbagPeriodText(keep.map((m) => m - 1))}.`;
+    noteText = n
       ? `Sem Blastbag: média de todos os desmontes do mês. Com Blastbag (a partir de ${startTxt}): média de Produção e Pré-corte.`
-      : "Sem dados para os filtros atuais.",
+      : "Sem dados para os filtros atuais.";
+  }
+
+  return {
+    B, modo, split, n, comAt, band, above,
+    labels: modo === "ano" ? keep.map(String) : keep.map((m) => meses[m - 1]),
+    series: { sem: semArr, prod: prodArr, pre: preArr },
+    subText, noteText, captionText: BLAST_CAPTION[modo],
   };
 }
 
@@ -1887,16 +1956,17 @@ function blastPill(ctx, text, cx, cy, color) {
   ctx.fillText(text, cx, cy);
 }
 
-/* Plugin do Chart.js: fundo branco, região e faixa com Blastbag (atrás dos dados),
-   linha tracejada de início, textos e pílulas (na frente). */
+/* Plugin do Chart.js: fundo branco; com a divisão Sem/Com (modos "mes" e "ano"), região verde
+   "Com Blastbag", linha tracejada de início, pílulas e, só no gráfico de pressão, a faixa.
+   No modo "media" (split false) só o fundo branco. */
 function blastbagPlugin(info) {
-  const hasCom = () => info.comAt < info.n;
+  const hasCom = () => info.split && info.comAt < info.n;
   const boundaryX = (chart) => {
     if (info.comAt === 0) return chart.chartArea.left;
     const x = chart.scales.x;
     return (x.getPixelForValue(info.comAt - 1) + x.getPixelForValue(info.comAt)) / 2;
   };
-  const bandShown = (chart) => !!info.band && !chart.getDatasetMeta(info.bandIdx).hidden;
+  const bandShown = (chart) => !!info.band && info.bandIdx >= 0 && !chart.getDatasetMeta(info.bandIdx).hidden;
   return {
     id: "blastbag",
     beforeDraw(chart) {
@@ -1920,7 +1990,7 @@ function blastbagPlugin(info) {
     },
     afterDraw(chart) {
       const a = chart.chartArea, ctx = chart.ctx;
-      if (!a) return;
+      if (!a || !info.split) return;
       ctx.save();
       if (hasCom()) {
         const bx = boundaryX(chart);
@@ -1936,9 +2006,12 @@ function blastbagPlugin(info) {
         ctx.font = `10px ${Chart.defaults.font.family}`;
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
-        ctx.fillText("Início da Blastbag", bx + 5, a.top + 4);
-        // Em tela estreita o rótulo colide com os valores; a legenda já nomeia a faixa.
-        if (bandShown(chart) && a.right - bx >= 150) {
+        // Sem espaço na região (tela estreita ou um único ponto "Com") o rótulo sairia do gráfico; a linha e a pílula ficam.
+        if (a.right - bx >= 95) ctx.fillText("Início da Blastbag", bx + 5, a.top + 4);
+        // Em tela estreita ou com poucos pontos "Com" (ex.: só 2026 no modo por ano) o rótulo colide
+        // com os valores; nesses casos a legenda já nomeia a faixa.
+        const slot = chart.scales.x.width / Math.max(info.n, 1);
+        if (bandShown(chart) && a.right - bx >= Math.max(150, 3 * slot)) {
           const yTop = chart.scales.y.getPixelForValue(info.band.max);
           ctx.fillStyle = BLASTBAG_COR.pre;
           ctx.font = `700 11px ${Chart.defaults.font.family}`;
@@ -1960,12 +2033,13 @@ function blastbagPlugin(info) {
   };
 }
 
-function renderBlastbag(key) {
-  const M = blastbagModel(key);
-  const { B, months, above, series } = M;
+function renderBlastbag(key, modo) {
+  const M = blastbagModel(key, modo);
+  const { B, labels, above, series } = M;
   document.getElementById(B.subId).textContent = M.subText;
   document.getElementById(B.noteId).textContent = M.noteText;
-  if (!months.length) return buildChart(B.canvas, null, emptyScatter());
+  document.getElementById(B.capId).textContent = M.captionText;
+  if (!M.n) return buildChart(B.canvas, null, emptyScatter());
 
   const dec = B.decimals;
   // Rótulo de valor: cor e posição (acima/abaixo) de cada série.
@@ -1985,15 +2059,18 @@ function renderBlastbag(key) {
     serie("sem", "Desmontes (média geral)", series.sem, BLASTBAG_COR.sem, "circle", BLASTBAG_COR.texto),
     serie("prod", "Produção", series.prod, BLASTBAG_COR.prod, "circle", BLASTBAG_COR.prod),
     serie("pre", "Pré-corte", series.pre, BLASTBAG_COR.pre, "rect", BLASTBAG_COR.pre),
-    // Só para a legenda: quadrado da faixa. A faixa em si é desenhada pelo plugin.
-    { type: "bar", label: "Faixa com Blastbag", data: [], backgroundColor: BLASTBAG_COR.faixa,
-      borderWidth: 0, pointStyle: "rect", datalabels: { display: false } },
   ];
+  // Só para a legenda: quadrado da faixa (existe só no gráfico de pressão e se há dado "Com").
+  const bandIdx = M.band ? datasets.length : -1;
+  if (M.band) {
+    datasets.push({ type: "bar", label: "Faixa com Blastbag", data: [], backgroundColor: BLASTBAG_COR.faixa,
+      borderWidth: 0, pointStyle: "rect", datalabels: { display: false } });
+  }
 
   buildChart(B.canvas, null, {
     type: "line",
-    data: { labels: months.map((m) => meses[m - 1]), datasets },
-    plugins: [blastbagPlugin({ n: M.n, comAt: M.comAt, band: M.band, bandIdx: datasets.length - 1 })],
+    data: { labels, datasets },
+    plugins: [blastbagPlugin({ n: M.n, comAt: M.comAt, band: M.band, bandIdx, split: M.split })],
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
@@ -2014,6 +2091,24 @@ function renderBlastbag(key) {
           ticks: { color: BLASTBAG_COR.texto, font: { size: 11 }, callback: (v) => fmtNum(v, dec) } },
       },
     },
+  });
+}
+
+/* Seletor de agrupamento: marca o modo efetivo e redesenha os dois gráficos. */
+function renderBlastSection() {
+  const modo = blastModo();
+  document.querySelectorAll("#blast-modo .seg__btn").forEach((btn) => {
+    const on = btn.dataset.modo === modo;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-pressed", String(on));
+  });
+  renderBlastbag("air", modo);
+  renderBlastbag("vib", modo);
+}
+
+function initBlastControls() {
+  document.querySelectorAll("#blast-modo .seg__btn").forEach((btn) => {
+    btn.onclick = () => { BLAST_MODO = btn.dataset.modo; renderBlastSection(); };
   });
 }
 
@@ -2354,6 +2449,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("summary-export").onclick = exportSummaryXlsx;
   document.getElementById("lamina-export").onclick = exportLaminasPptx;
   initBackToTop();
+  initBlastControls();
   initSidebar();
   loadSheet().catch((e) => console.error(e));
   setInterval(() => loadSheet().catch(() => {}), 10 * 60 * 1000);
