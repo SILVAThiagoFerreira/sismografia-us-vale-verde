@@ -841,8 +841,8 @@ body {
   letter-spacing: 0.04em;
 }
 
-/* Sem x Com Blastbag: seletor de agrupamento no cabeçalho da seção (mesmo estilo dos botões) */
-.blast-head {
+/* Evolução por tipo de evento: seletor de agrupamento no cabeçalho da seção (mesmo estilo dos botões) */
+.evol-head {
   margin-top: 56px;
   display: flex;
   flex-wrap: wrap;
@@ -850,7 +850,7 @@ body {
   justify-content: space-between;
   gap: 12px 20px;
 }
-.blast-head + .lamina { margin-top: 24px; }
+.evol-head + .lamina { margin-top: 24px; }
 .seg { display: flex; flex-wrap: wrap; }
 .seg__btn {
   font-family: var(--font);
@@ -871,7 +871,7 @@ body {
 .seg__btn:hover { color: var(--red); border-color: var(--red); }
 .seg__btn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 .seg__btn.is-active { color: #ffffff; background: var(--red); border-color: var(--red); }
-@media print { .blast-head { display: none !important; } }
+@media print { .evol-head { display: none !important; } }
 
 /* Rodapé: filete fino escuro */
 .confidential {
